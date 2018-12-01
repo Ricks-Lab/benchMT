@@ -1,0 +1,39 @@
+#############################################################################
+## Blank lines and any part of a line beginning with # are ignored
+#############################################################################
+##
+## List of applications with desired arguments to replace the
+## default arguments in the bench script.
+##
+## Format as would be used for executing the application from a
+## command line, app -arg -arg etc. Multiple instances of the
+## same app with different (or same) arguments will run that
+## many if the app is in the APPS_[C,G]PU directories.
+##
+## Needs the full application name with extension. Zero to many
+## arguments are possible.
+##
+##
+##############################################################################
+## Set benchMT command line options - to be implemented
+##############################################################################
+## TODO 
+## In a future the release, the capability of specifying benchMT
+## command line options from BenchCFG file will be added.
+#mode arg argv
+##
+##
+##############################################################################
+## Entries to define benchmark run
+##############################################################################
+MBv8_8.22r3584_sse2_clAMD_HD5_x86_64-pc-linux-gnu -v 1 -instances_per_device 1 -sbs 2048 -period_iterations_num 1 -tt 500 -spike_fft_thresh 8192 -tune 1 64 1 4 -oclfft_tune_gr 256 -oclfft_tune_lr 16 -oclfft_tune_wg 256 -oclfft_tune_ls 512 -oclfft_tune_bn 64 -oclfft_tune_cw 64 -hp -high_perf -no_defaults_scaling
+#MBv8_8.22r3584_sse2_clAMD_HD5_x86_64-pc-linux-gnu -v 1
+
+#MBv8_8.04r3306_sse2_linux64 --nographics
+#MBv8_8.04r3306_sse41_linux64 --nographics
+##MBv8_8.04r3306_ssse3_linux64 --nographics
+#MBv8_8.22r3711_sse41_x86_64-pc-linux-gnu --nographics
+#MBv8_8.22r3712_avx2_x86_64-pc-linux-gnu --nographics
+#MBv8_8.04r3306_sse42_linux64 --nographics
+#MBv8_8.05r3345_avx_linux64 --nographics
+#MBv8_8.04r3306_sse3_linux64 --nographics

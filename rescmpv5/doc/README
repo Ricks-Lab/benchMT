@@ -1,0 +1,138 @@
+rescmpv5
+
+by Tetsuji Maverick Rai and Josef W. Segur
+
+usage
+rescmpv5 {result.sah 1} {result.sah 2} [Qnn.n]
+
+compare two result.sah files and check they are within validation limits.
+It determines these two results are
+1. strongly similar (all the signals are similar)
+2. weakly similar (at least half the signals (and at least one) from each 
+   result are roughly equal to a signal from the other result
+3. different
+                                        
+The optional Qnn.n third argument specifies the maximum Q value at which
+the table of signal types is shown for strongly similar results. The
+numerical part of the argument is evaluated as a double float and is
+ignored if outside the 0 through 100 range.
+  Q0 would suppress the table
+  Q100 would show the table for all results
+  Q99 is the default
+
+
+This is a modified version of Tetsuji's rescmp.
+
+The code is derived from the SETI@home v7 validator code. A "Strongly similar"
+outcome requires that each signal be matched within these tolerances:
+
+Common to all types:
+
+signal type:  equal
+ra:           .01 degrees (.00066 hours)
+decl:         .01 degrees
+time:         1 sec
+freq:         .01 Hz
+chirp_rate:   .01 Hz/sec
+fft_len:      equal
+
+Gaussian and best_gaussian:
+
+peak_power:   1%
+mean_power:   1%
+sigma:        1%
+chi_sqr:      1%
+
+Pulse and best_pulse:
+
+mean_power:   1%
+period:       1%
+snr:          1%
+thresh:       1%
+
+Triplet and best_triplet:
+
+period:       1%
+
+Autocorr and best_autocorr:
+
+delay:        1%
+
+
+
+There is a Q value presented which indicates how closely important values
+in the two results match. Q is 100.0% if all the values are identical, but
+reduces toward zero as the worst difference found in a matched pair of
+signals approaches one of the signal matching tolerances above. In addition,
+peak_power contributes to Q for all signal types using a tolerance of 1%.
+
+For the "Strongly similar" case, Q is shown thus:
+
+Result      : Strongly similar,  Q= 99.98%
+
+For "Weakly similar" or "Different" cases Q is shown thus:
+
+For R1:R2 matched signals only, Q= 97.00%
+Result      : Weakly similar.
+
+If there are no matches the line for Q is not shown, but results are very
+seldom that much "Different".
+
+Because the values are double floats the difference can potentially be huge,
+so if a difference exceeds it's tolerance, Q= ???? is used. That indicates
+a questionable outcome which should be investigated further. For comparisons
+of results produced by the same system, probably anything less than 90% also
+suggests further investigation. Comparisons of results from systems of
+different architecture may give lower Q percentages.
+
+For the "Weakly similar" and "Different" cases, and for the "Strongly similar"
+case if the Q value is less than or equal to a threshold, rescmpv5 provides
+counts of the number of signals of each type which compared "Exact", "Super",
+"Tight", "Good", and "Bad". The "Good" and "Bad" counts correspond to those
+which met or didn't meet the above tolerances, so are the basis of the Validator
+decision. "Tight" uses comparison tolerances generally 1/10 of those standards
+so indicates signals which would individually have Q of 90% or higher. "Super"
+uses comparison tolerances generally 1/100 of those standards so indicates
+signals which would individually have Q of 99% or higher. "Exact" means no
+discernable difference. For "Strongly similar" cases when the table is shown,
+differences between the "Exact", "Super", "Tight", and "Good" counts indicate
+what type of signal caused the reduced Q value.
+
+The table is built by a procedure which first tries to find a match for each
+signal in the first result.sah by looking through all the signals in the second
+result.sah. The counts from that are below the R1:R2 heading. Then the procedure
+is reversed, checking each signal in the second result.sah for a match within the 
+first. Those counts are headed R2:R1.
+
+The table normally shows 10 signal types:
+
+        Spike
+     Autocorr
+     Gaussian
+        Pulse
+      Triplet
+   Best Spike
+Best Autocorr
+Best Gaussian
+   Best Pulse
+ Best Triplet
+
+However, rescmpv5 does not show the "Autocorr" and "Best Autocorr" lines when
+neither file being compared has any. That's simply meant to make the table more
+sensible when S@H Enhanced results are being compared, although it will also
+happen on S@H v7 results with result_overflow if no Autocorrs were found before
+the early exit.
+
+The threshold for displaying the table with "Strongly similar" results is used
+at full double precision before the Q value is rounded to 4 digits for display.
+The default 99 threshold means that a calculated Q of 99.00000000000000 or less
+will have the table, but higher values which also round to 99.00 will not.
+
+When the result files are parsed, the line numbers corresponding to the opening
+tag for each signal are saved. If a match for a signal is not found, rescmpv5
+lists its line number after the table, making it easier to find the problem
+signal in the file.
+
+
+Josef W. Segur  15 February 2012
+

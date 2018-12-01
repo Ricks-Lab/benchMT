@@ -1,0 +1,35 @@
+rescmp
+
+by Tetsuji Maverick Rai
+
+usage
+rescmp {result.sah 1} {result sah 2}
+
+
+compare two result.sah files and check they are within validation limits.
+It determines these two results are
+1. strongly similar (all the signals are similar)
+2. weakly similar (at least half the signals (and at least one) from each 
+   result are roughly equal to a signal from the other result
+3. different
+
+In real validation process, 3 or more results are compared, and only when 2 
+or more are strongly similar to one another, the "consensus" has been reached.
+Then, the first one among the strongly similar ones is the canonical result.
+If there are results "weakly similar" to the canonical result, credits are
+given to those results also.
+
+An .exe file is added for Windows commandline environment.  A Unix like OS 
+user should make one's own one by "make".  But don't forget to edit Makefile,
+especially CXXFLAGS line.
+
+
+Following files are added to comply with legal matters (these are from 
+seti@home_enhanced source distribution):
+AUTHORS
+COPYING
+COPYRIGHT
+README  (note: this file is README.maverick)
+
+
+Tue May 16 01:42:21 JST 2006 // TMR

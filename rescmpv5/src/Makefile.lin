@@ -1,0 +1,43 @@
+# Project: rescmpv5_l
+# Makefile created by Dev-C++ 4.9.9.2
+# Makefile modified for linux by uje
+# uje: using i486, instead of i386, which is no longer supported
+# uje: by newer libc versions.
+
+CPP  = g++
+CC   = gcc
+#WINDRES = windres
+RES  =
+OBJ  = sah_result.o parse.o main.o $(RES)
+LINKOBJ  = sah_result.o parse.o main.o $(RES)
+LIBS = -s -static -static-libgcc -static-libstdc++ -m32 -march=i486
+INCS =
+CXXINCS =
+BIN  = rescmpv5_l
+CXXFLAGS = $(CXXINCS)   -save-temps -fexceptions -O3 -m32 -march=i486
+CFLAGS = $(INCS)   -save-temps -fexceptions -O3 -m32 -march=i486
+RM = rm -f
+TEMPS = sah_result.ii parse.ii main.ii sah_result.s parse.s main.s
+
+.PHONY: all all-before all-after clean clean-custom
+
+all: all-before rescmpv5_l all-after
+
+
+clean: clean-custom
+	${RM} $(OBJ)
+
+distclean: clean
+	$(RM) $(TEMPS) $(BIN)
+
+$(BIN): $(OBJ)
+	$(CPP) $(LINKOBJ) -o "rescmpv5_l" $(LIBS)
+
+./O/sah_result.o: sah_result.cpp
+	$(CPP) -c sah_result.cpp -o ./O/sah_result.o $(CXXFLAGS)
+
+./O/parse.o: parse.cpp
+	$(CPP) -c parse.cpp -o ./O/parse.o $(CXXFLAGS)
+
+./O/main.o: main.cpp
+	$(CPP) -c main.cpp -o ./O/main.o $(CXXFLAGS)
