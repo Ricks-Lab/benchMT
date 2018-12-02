@@ -31,3 +31,13 @@
  name will be included in the name of the testData subdirectory for the current run.
 
 
+## Development plans
+* GPU multi-threaded implementation. Currently total_gpu_threads = total_gpu_count, a future development opportunity is to implement a max number of threads per GPU
+* Consider using opencl instead of lshw to get valid GPU compute platforms, but maybe won't work for cuda apps
+* Read benchMT command line options from mode lines in BenchCFG file
+* Remove -device arg if specified, since -device is automatically added based on slot assignment
+* Need to make a lock_file in the working directory to prevent a second occurrence of benchMT from using the same directory
+* Should consider executing job with time command.  This should give total and CPU time metrics
+* Need to figure out how to run a job without a shell
+* Deal with an immediate fail to spawn a process when executing a job
+

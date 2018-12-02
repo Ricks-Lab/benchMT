@@ -457,6 +457,7 @@ class JOB_LIST:
             job = BENCH_JOB(uuid4().hex)
             job.app_name = lineitems[0]
             if len(lineitems) > 1:
+                # TODO remove -device arg if specified
                 job.app_args = lineitems[1]
             else:
                 job.app_args = ""
@@ -1086,6 +1087,7 @@ def main():
     env.psv_file_ptr = open(env.psv_file, 'w')
     print(__program_name__ + " " +  __version__ +  " \u2015 SETI MB Benchmarking Utility \u2015 Linux edition\n",
             file=env.sum_file_ptr)
+    # TODO check if there is already and instance running in this directory
     if args.noBS == False:
         print("Suspending BOINC\n", file=env.sum_file_ptr)
         env.suspend_boinc()
