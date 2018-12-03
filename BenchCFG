@@ -15,12 +15,36 @@
 ##
 ##
 ##############################################################################
-## Set benchMT command line options - to be implemented
+## Set benchMT command line options - Under Development
 ##############################################################################
-## TODO 
-## In a future the release, the capability of specifying benchMT
-## command line options from BenchCFG file will be added.
-#mode arg argv
+## 
+## Command line options can be specified as modes in the BenchCFG file or an
+## alternate CFG file specified on the command line.  Options specified on
+## the command line will override those specified with mode in a CFG file.
+## 
+## This feature is under development in v1.1.X
+## mode values here are the default values
+##
+#Don't ask confirmation before running jobs
+mode yes False
+#Specify name of this run
+mode run_name RUN_name
+#Specify path for BOINC
+mode boinc_home /home/boinc/BOINC/
+#Do not suspend BOINC
+mode noBS False
+#Display compact run status
+mode display_compact False
+#Display run status by slots instead of jobs
+mode display_slots False
+#Specify number of times to run benchmark
+mode num_repetitions 1
+#Specify max number of threads to load
+mode max_threads -1
+#Specify max number of GPUs to load
+mode max_gpus -1
+#Use standard signal WUs instead of Test WUs
+mode ref_signals False
 ##
 ##
 ##############################################################################

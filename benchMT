@@ -52,9 +52,9 @@ __copyright__ = "Copyright (C) 2018 RueiKe"
 __credits__ = "Testing: Keith Myers"
 __license__ = "GNU General Public License"
 __program_name__ = "benchMT"
-__version__ = "v1.00"
+__version__ = "v1.1.0"
 __maintainer__ = "RueiKe"
-__status__ = "Initial Release"
+__status__ = "CFG Features under development"
 
 import argparse
 import re
@@ -935,7 +935,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--about", help="README", action="store_true", default=False)
     parser.add_argument("-y", "--yes", help="Don't ask confirmation before running jobs", action="store_true", default=False)
-    parser.add_argument("-d", "--debug", help="Debug output", action="store_true", default=False)
+    parser.add_argument("--cfg_file", help="Specify name alternative CFG file", type=str, default="BenchCFG")
     parser.add_argument("--run_name", help="Specify name of this run", type=str, default="")
     parser.add_argument("--boinc_home", help="Specify path for BOINC", type=str, default=mb_const.boinc_home)
     parser.add_argument("--noBS", help="Do not suspend BOINC", action="store_true", default=False)
@@ -947,6 +947,7 @@ def main():
     parser.add_argument("--ref_signals", help="Use standard signal WUs instead of Test WUs",
                         action="store_true", default=False)
     parser.add_argument("--admin_mkdirs", help="Make required directories", action="store_true", default=False)
+    parser.add_argument("-d", "--debug", help="Debug output", action="store_true", default=False)
     args = parser.parse_args()
     mb_const.boinc_home = args.boinc_home
 
@@ -965,19 +966,25 @@ def main():
         print("Status: ", __status__)
         exit(0)
     env = BENCH_ENV()
-    if args.debug == True :  mb_const.DEBUG = True
-    if len(args.run_name) > 0 :
-        if args.run_name.isprintable():
-            env.run_name = args.run_name.replace(' ','')
-            env.run_name = env.run_name.replace('/','')
-            env.run_name = env.run_name.replace('\\','')
-
     if(env.set_env() == False): 
         if args.makedirs == True :
             env.makedirs()
             exit(0)
         print("Error in environment.  Exiting...")
         sys.exit(-1)
+
+    # Read BenchCFG file and create list of provided apps and aguments.
+    # Determine of the apps are GPU or CPU by checking which APP_DIR they are located in
+    applist = JOB_LIST()
+    applist.read_benchcfg(env)
+    if mb_const.DEBUG == True: applist.print(title="Initial app list")
+
+    if args.debug == True :  mb_const.DEBUG = True
+    if len(args.run_name) > 0 :
+        if args.run_name.isprintable():
+            env.run_name = args.run_name.replace(' ','')
+            env.run_name = env.run_name.replace('/','')
+            env.run_name = env.run_name.replace('\\','')
     if args.ref_signals == True :  env.mode_ref_signals = True
     env.mode_display_compact = args.display_compact
     env.mode_display_slots = args.display_slots
@@ -996,12 +1003,6 @@ def main():
         env.allocated_gthreads = env.total_gpu_threads
 
     env.print()
-
-    # Read BenchCFG file and create list of provided apps and aguments.
-    # Determine of the apps are GPU or CPU by checking which APP_DIR they are located in
-    applist = JOB_LIST()
-    applist.read_benchcfg(env)
-    if mb_const.DEBUG == True: applist.print(title="Initial app list")
 
     # Create a list of WUs to be processed
     wulist = JOB_LIST()
