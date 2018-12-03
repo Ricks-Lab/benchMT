@@ -91,6 +91,57 @@ class MB_CONST:
         self.DEBUG = False
 mb_const=MB_CONST()
 
+class CFG_MODES:
+    def __init__(self):
+        self.modes = {
+                "yes" : None,
+                "run_name" : None,
+                "boinc_home" : None,
+                "noBS" : None,
+                "display_compact" : None,
+                "display_slots" : None,
+                "num_repetitions" : None,
+                "max_threads" : None,
+                "max_gpus" : None,
+                "ref_signals" : None,
+                }
+        self.type = {
+                "yes" : "Logical",
+                "run_name" : "String",
+                "boinc_home" : "String",
+                "noBS" : "Logical",
+                "display_compact" : "Logical",
+                "display_slots" : "Logical",
+                "num_repetitions" : "Numeric",
+                "max_threads" : "Numeric",
+                "max_gpus" : "Numeric",
+                "ref_signals" : "Logical",
+                }
+
+    def set_mode(self, mode_name, mode_value):
+        if mode_name in self.modes.keys() == False:
+            return False
+
+        if self.type[mode_name] == "Logical":
+            if mode_value == "True":
+                self.modes[mode_name] = True
+            else:
+                self.modes[mode_name] = False
+            return True
+        elif self.type[mode_name] == "Numeric":
+            print("set_mode: ", mode_name, "is numeric")
+            if mode_value.isdigit() == "True":
+                #PROBLEM this is never true
+                print("set_mode: ", mode_name, "is digit")
+                self.modes[mode_name] = int(mode_value)
+                return True
+            else:
+                return False
+        elif self.type[mode_name] == "String":
+            self.modes[mode_name] = mode_value
+        else:
+            return False
+
 
 class BENCH_ENV:
     def __init__(self):
@@ -444,16 +495,31 @@ class JOB_LIST:
     def __init__(self):
         self.list = {}
 
-    # TODO read benchMT command line options from mode lines in BenchCFG file
-    def read_benchcfg(self, env):
+    def read_benchcfg(self, env, modes):
         clfptr = open(env.command_line_file)
         for line in clfptr:
-            line = line.replace('\n', '')
-            line = line.replace('\r', '')
+            line = line.strip()
+            #line = line.replace('\n', '')
+            #line = line.replace('\r', '')
             if len(line) == 0 : continue
             if line[0] == '#': continue
             if len(line) <2 : continue
             lineitems = line.split(sep=' ', maxsplit=1)
+            #check if entry is a mode item
+            if lineitems[0] == "mode":
+                modeitems = lineitems[1].split(sep=' ', maxsplit=2)
+                if len(modeitems) < 2 :
+                    continue
+                #process mode
+                mode_name = modeitems[0].strip()
+                mode_value = modeitems[1].strip()
+                if modes.set_mode(mode_name, mode_value) == False:
+                    print("Invalid mode specified in CFG file: [", mode_name, "][", mode_value, "]", sep='')
+                else:
+                    print("Read valid mode from CFG file: [", mode_name, "][", mode_value, "]", sep='')
+                continue
+
+            #process appname and apparg
             job = BENCH_JOB(uuid4().hex)
             job.app_name = lineitems[0]
             if len(lineitems) > 1:
@@ -975,10 +1041,12 @@ def main():
 
     # Read BenchCFG file and create list of provided apps and aguments.
     # Determine of the apps are GPU or CPU by checking which APP_DIR they are located in
+    cfg_modes = CFG_MODES()
     applist = JOB_LIST()
-    applist.read_benchcfg(env)
+    applist.read_benchcfg(env, cfg_modes)
     if mb_const.DEBUG == True: applist.print(title="Initial app list")
 
+    # Set command line arguments
     if args.debug == True :  mb_const.DEBUG = True
     if len(args.run_name) > 0 :
         if args.run_name.isprintable():
@@ -1137,7 +1205,6 @@ def main():
                     else:
                         cmd_str_list = [env.ref_app_path + slots.list[slot_num].job.app_name , " " + slots.list[slot_num].job.app_args]
                     if mb_const.DEBUG == True: print(cmd_str_list)
-
 
 
                     #cd to slot dir and execute app with args
