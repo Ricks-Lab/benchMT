@@ -125,14 +125,13 @@ class CFG_MODES:
         if self.type[mode_name] == "Logical":
             if mode_value == "True":
                 self.modes[mode_name] = True
-            else:
+                return True
+            elif mode_value == "False":
                 self.modes[mode_name] = False
-            return True
+                return True
+            return False
         elif self.type[mode_name] == "Numeric":
-            print("set_mode: ", mode_name, "is numeric")
-            if mode_value.isdigit() == "True":
-                #PROBLEM this is never true
-                print("set_mode: ", mode_name, "is digit")
+            if re.fullmatch('[-]*[0-9]+', mode_value):
                 self.modes[mode_name] = int(mode_value)
                 return True
             else:
@@ -141,6 +140,11 @@ class CFG_MODES:
             self.modes[mode_name] = mode_value
         else:
             return False
+
+    def mode_value(self, mode_name):
+        if mode_name in self.modes.keys() == False:
+            return False
+        return(self.modes[mode_name])
 
 
 class BENCH_ENV:
@@ -1020,6 +1024,7 @@ def main():
     # TODO need to make a lock_file in the working directory to prevent
     # more than 1 instance of benchMT using the same directories
 
+    if args.debug == True :  mb_const.DEBUG = True
     # Set and verify working environment
     if args.about == True :  
         print(__doc__ )
@@ -1039,6 +1044,15 @@ def main():
         print("Error in environment.  Exiting...")
         sys.exit(-1)
 
+    if len(args.cfg_file) > 0 :
+        if args.cfg_file != "BenchCFG" :
+            test_command_line_file = env.current_dir + "/" + args.cfg_file
+            if(os.path.isfile(test_command_line_file) == True): 
+                env.command_line_file = test_command_line_file
+            else:
+                print("Specified BenchCFG [", test_command_line_file,"] doesn't exist")
+                sys.exit(-1)
+
     # Read BenchCFG file and create list of provided apps and aguments.
     # Determine of the apps are GPU or CPU by checking which APP_DIR they are located in
     cfg_modes = CFG_MODES()
@@ -1046,27 +1060,54 @@ def main():
     applist.read_benchcfg(env, cfg_modes)
     if mb_const.DEBUG == True: applist.print(title="Initial app list")
 
-    # Set command line arguments
-    if args.debug == True :  mb_const.DEBUG = True
+    # set modes with CFG file mode statements
+    specified_max_threads = -1
+    specified_max_gpus = -1
+    if cfg_modes.mode_value("yes") == True :  args.yes = True
+    if cfg_modes.mode_value("run_name") != None :
+        if len(cfg_modes.mode_value("run_name")) > 0 :
+            if cfg_modes.mode_value("run_name").isprintable():
+                env.run_name = cfg_modes.mode_value("run_name").replace(' ','')
+                env.run_name = env.run_name.replace('/','')
+                env.run_name = env.run_name.replace('\\','')
+    if cfg_modes.mode_value("ref_signals") == True :  env.mode_ref_signals = True
+    if cfg_modes.mode_value("display_compact") == True :  env.mode_display_compact = True
+    if cfg_modes.mode_value("display_slots") == True :  env.mode_display_slots = True
+    if cfg_modes.mode_value("num_repetitions") != None : 
+        if cfg_modes.mode_value("num_repetitions") > 0 : 
+            env.repetitions = cfg_modes.mode_value("num_repetitions")
+        else:
+            print("CFG: Invalid number of repetitions specified ["+ str(cfg_modes.mode_value("num_repetitions")) + "].  Ignoring...")
+    if cfg_modes.mode_value("max_threads") != None : 
+        if cfg_modes.mode_value("max_threads") > 0 : 
+            specified_max_threads = cfg_modes.mode_value("max_threads")
+    if cfg_modes.mode_value("max_gpus") != None : 
+        if cfg_modes.mode_value("max_gpus") > 0 : 
+            specified_max_gpus = cfg_modes.mode_value("max_gpus")
+
+    # overwrite modes with command line arguments
     if len(args.run_name) > 0 :
         if args.run_name.isprintable():
             env.run_name = args.run_name.replace(' ','')
             env.run_name = env.run_name.replace('/','')
             env.run_name = env.run_name.replace('\\','')
     if args.ref_signals == True :  env.mode_ref_signals = True
-    env.mode_display_compact = args.display_compact
-    env.mode_display_slots = args.display_slots
+    if args.display_compact == True :  env.mode_display_compact = True
+    if args.display_slots == True :  env.mode_display_slots = True
     if args.num_repetitions > 0 : 
         env.repetitions = args.num_repetitions
     else:
         print("Invalid number of repetitions specified ["+ str(args.num_repetitions) + "].  Ignoring...")
 
-    if args.max_threads > 0 and args.max_threads < env.total_cpu_threads :
-        env.allocated_cthreads = args.max_threads
+    if args.max_threads > 0: specified_max_threads = args.max_threads
+    if specified_max_threads > 0 and specified_max_threads < env.total_cpu_threads :
+        env.allocated_cthreads = specified_max_threads
     else:
         env.allocated_cthreads = env.total_cpu_threads
-    if args.max_gpus > 0 and args.max_gpus < env.total_gpu_threads :
-        env.allocated_gthreads = args.max_gpus
+
+    if args.max_gpus > 0: specified_max_gpus = args.max_gpus
+    if specified_max_gpus > 0 and specified_max_gpus < env.total_gpu_threads :
+        env.allocated_gthreads = specified_max_gpus
     else:
         env.allocated_gthreads = env.total_gpu_threads
 
@@ -1106,7 +1147,7 @@ def main():
     num_gpu_jobs = joblist.num_gpu_jobs()
     if num_cpu_jobs > 0 and num_gpu_jobs > 0 and env.allocated_cthreads < 2:
         print("ERROR: Insufficient threads available for specified jobs. Exiting...")
-        exit(-1)
+        sys.exit(-1)
     if num_gpu_jobs > env.allocated_gthreads:
         num_gpu_slots = env.allocated_gthreads
     else:
@@ -1118,7 +1159,7 @@ def main():
         num_gpu_slots = env.allocated_cthreads 
     if num_gpu_slots < 1 and num_gpu_jobs > 0:
         print("ERROR: Insufficient threads available for specified jobs. Exiting...")
-        exit(-1)
+        sys.exit(-1)
 
     if num_cpu_jobs + num_gpu_slots < env.allocated_cthreads :
         env.allocated_cthreads = num_cpu_jobs + num_gpu_slots
@@ -1130,7 +1171,7 @@ def main():
     slots = SLOTS_LIST()
     slots.create_slot_list(env.allocated_cthreads)
     if slots.initialize_slots(env, num_gpu_slots) == False :
-        exit(-1)
+        sys.exit(-1)
     slots.print(title="List of Initialized Slots")
 
     # Execute the joblist
@@ -1148,6 +1189,11 @@ def main():
         joblist.print(env.mode_display_compact)
 
     #Make testData subdirectory for this run and open summary file for writing
+    # update summary_path in case the run name was set
+    env.summary_path = env.testdata_path + "/" + env.hostname + "_benchMT_" + env.run_name + "_" + env.time_now_short
+    env.summary_file = env.summary_path + "/" + env.hostname + ".testlog." + env.run_name + "_" + env.time_now_short + ".txt"
+    env.psv_file = env.summary_path + "/" + env.hostname + ".timelog." + env.run_name + "_" + env.time_now_short + ".psv"
+
     os.mkdir(env.summary_path)
     if(os.path.isdir(env.summary_path) == False):
         print("Failed to make benchMT testData subdir [", env.summary_path,"]")
