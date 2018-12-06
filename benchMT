@@ -185,6 +185,7 @@ class BENCH_ENV:
         self.psv_file = ""
         self.psv_file_ptr = None
         self.workdir_path = ""
+        self.lockfile = ""
         self.mode_display_slots = False
         self.mode_display_compact = False
 
@@ -290,6 +291,7 @@ class BENCH_ENV:
         self.testdata_path = self.current_dir + "/" + mb_const.testdata_subdir
         self.ref_results_path = self.ref_app_path + "/" + mb_const.ref_results_subdir
         self.slots_path = self.workdir_path + "/" + mb_const.slots_subdir
+        self.lockfile = self.workdir_path + "/.benchMTlockfile" 
         self.summary_path = self.testdata_path + "/" + self.hostname + "_benchMT_" + self.run_name + "_" + self.time_now_short
         self.summary_file = self.summary_path + "/" + self.hostname + ".testlog." + self.time_now_short + ".txt"
         self.init_data_template_file = self.workdir_path + "/init_data.xml.template"
@@ -381,6 +383,37 @@ class BENCH_ENV:
         if(os.path.isdir(self.testdata_path) == False): 
             print("TestData Path [", self.testdata_path,"] doesn't exist, making...")
             os.mkdir(self.testdata_path)
+
+    def is_bench_conflict(self):
+        """return true if there is another instance running.  Check lock file for pid
+        if there is a valid process with that pid, then there is a conflict.
+
+        if no conflict, then write current pid to lockfile and return false"""
+        mypid = os.getpid()
+        if(os.path.isfile(self.lockfile) == False): 
+            # no lockfile, so assume no conflict
+            file_ptr = open(self.lockfile, 'w')
+            print(str(mypid), file=file_ptr)
+            file_ptr.close()
+            return(False)
+        else:
+            file_ptr = open(self.lockfile, 'r')
+            line = file_ptr.readline().strip()
+            file_ptr.close()
+            if line.isdigit():
+                pid = int(line)
+                try:
+                    os.kill(pid, 0)
+                except OSError:
+                    #not running
+                    file_ptr = open(self.lockfile, 'w')
+                    print(str(mypid), file=file_ptr)
+                    file_ptr.close()
+                    return(False)
+                else:
+                    #running
+                    return(True)
+
 
     def is_boinc_running(self):
         cmd = subprocess.Popen('ps -C boinc -o pid 2>/dev/null', shell=True, stdout=subprocess.PIPE)
@@ -1182,6 +1215,11 @@ def main():
     print("Pending reference jobs: ", num_pending_pjobs["REF"])
     if args.yes == False :
         if input("Execute listed jobs? [y/N]").lower() != 'y': exit(1)
+    # check if there is already and instance running in this directory
+    if env.is_bench_conflict() :
+        print("Another instance of benchMT is running in this directory, exiting...")
+        exit(-1)
+
     if mb_const.DEBUG == False: os.system('clear')
     if env.mode_display_slots == True:
         slots.print_activity(joblist, env.mode_display_compact)
@@ -1202,7 +1240,6 @@ def main():
     env.psv_file_ptr = open(env.psv_file, 'w')
     print(__program_name__ + " " +  __version__ +  " \u2015 SETI MB Benchmarking Utility \u2015 Linux edition\n",
             file=env.sum_file_ptr)
-    # TODO check if there is already and instance running in this directory
     if args.noBS == False:
         print("Suspending BOINC\n", file=env.sum_file_ptr)
         env.suspend_boinc()
