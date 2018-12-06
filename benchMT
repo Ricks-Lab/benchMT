@@ -1054,8 +1054,6 @@ def main():
     args = parser.parse_args()
     mb_const.boinc_home = args.boinc_home
 
-    # TODO need to make a lock_file in the working directory to prevent
-    # more than 1 instance of benchMT using the same directories
 
     if args.debug == True :  mb_const.DEBUG = True
     # Set and verify working environment
@@ -1372,6 +1370,10 @@ def main():
     # close files 
     env.sum_file_ptr.close()
     env.psv_file_ptr.close()
+
+    # Remove lockfile
+    if(os.path.isfile(env.lockfile) == True): 
+        os.remove(env.lockfile)
 
 
 if __name__ == "__main__":
