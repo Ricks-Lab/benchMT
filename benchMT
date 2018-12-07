@@ -536,8 +536,6 @@ class JOB_LIST:
         clfptr = open(env.command_line_file)
         for line in clfptr:
             line = line.strip()
-            #line = line.replace('\n', '')
-            #line = line.replace('\r', '')
             if len(line) == 0 : continue
             if line[0] == '#': continue
             if len(line) <2 : continue
@@ -560,8 +558,14 @@ class JOB_LIST:
             job = BENCH_JOB(uuid4().hex)
             job.app_name = lineitems[0]
             if len(lineitems) > 1:
-                # TODO remove -device arg if specified
-                job.app_args = lineitems[1]
+                argstr = lineitems[1]
+                searchObj = re.search(r'[-]+[dD]evice\s+[0-9]+', argstr)
+                if(searchObj != None):
+                    argstr = re.sub(r'[-]+[dD]evice\s+[0-9]+', '', argstr)
+                    print(lineitems[1])
+                    print("Removed [-device X] argument as conflicts with slot assignment process")
+                    print(argstr)
+                job.app_args = argstr
             else:
                 job.app_args = ""
             if(os.path.isfile(env.cpu_app_path + job.app_name) == True): 
