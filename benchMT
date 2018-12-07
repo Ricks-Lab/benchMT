@@ -103,6 +103,7 @@ class CFG_MODES:
                 "num_repetitions" : None,
                 "max_threads" : None,
                 "max_gpus" : None,
+                "gpu_devices" : None,
                 "ref_signals" : None,
                 }
         self.type = {
@@ -115,6 +116,7 @@ class CFG_MODES:
                 "num_repetitions" : "Numeric",
                 "max_threads" : "Numeric",
                 "max_gpus" : "Numeric",
+                "gpu_devices" : "String",
                 "ref_signals" : "Logical",
                 }
 
@@ -162,6 +164,7 @@ class BENCH_ENV:
         self.total_gpu_count = 0
         self.allocated_cthreads = 0
         self.allocated_gthreads = 0
+        self.gpu_devices = []
         self.gpu_str = ""
         self.current_dir = ""
         self.cpu_app_path = ""
@@ -277,6 +280,8 @@ class BENCH_ENV:
             cmd.stdout.close()
             self.total_gpu_count =  gpu_cnt
             self.total_gpu_threads =  gpu_cnt
+            for gi in range(0, gpu_cnt):
+                self.gpu_devices[len(self.gpu_devices):] = [gi]
             self.gpu_str =  gpu_str
 
         # Set working directories
@@ -473,6 +478,7 @@ class BENCH_ENV:
         print("CPU Threads: ", self.total_cpu_threads, file=fileptr)
         print("GPU Count: ", self.total_gpu_count, file=fileptr)
         print("GPU Threads: ", self.total_gpu_threads, file=fileptr)
+        print("GPU Devices: ", str(self.gpu_devices), file=fileptr)
         print("GPU Details: ", self.gpu_str, file=fileptr)
         print("Current Dir: ", self.current_dir, file=fileptr)
         print("Slots Dir: ", self.slots_path, file=fileptr)
@@ -907,7 +913,7 @@ class SLOTS_LIST:
             #copy .cl files to workdir
             for file_str in glob.glob(env.gpu_app_path + "*.cl"):
                 shutil.copy2(file_str, env.workdir_path +"/")
-        gpu_device_id = 0
+        gpu_device_index = 0
         for k, v in self.list.items() :
             v.slot_dir = env.slots_path + str(v.slot_num)
             os.mkdir(v.slot_dir)
@@ -919,9 +925,9 @@ class SLOTS_LIST:
                 shutil.copy2(env.init_data_template_file, v.slot_dir + "/init_data.xml")
             if(num_gpu_slots > 0):
                 v.platform = "GPU"
-                v.device = gpu_device_id
+                v.device = env.gpu_devices[gpu_device_index]
                 num_gpu_slots -= 1
-                gpu_device_id += 1
+                gpu_device_index += 1
             else:
                 v.platform = "CPU"
         return(True)
@@ -1051,6 +1057,7 @@ def main():
     parser.add_argument("--num_repetitions", help="Specify number of times to run benchmark", type=int, default=1)
     parser.add_argument("--max_threads", help="Specify max number of threads to load", type=int, default=0)
     parser.add_argument("--max_gpus", help="Specify max number of GPUs to load", type=int, default=0)
+    parser.add_argument("--gpu_devices", help="Specify which GPUs to use: 0,1,2", type=str, default="")
     parser.add_argument("--ref_signals", help="Use standard signal WUs instead of Test WUs",
                         action="store_true", default=False)
     parser.add_argument("--admin_mkdirs", help="Make required directories", action="store_true", default=False)
@@ -1108,6 +1115,22 @@ def main():
     if cfg_modes.mode_value("ref_signals") == True :  env.mode_ref_signals = True
     if cfg_modes.mode_value("display_compact") == True :  env.mode_display_compact = True
     if cfg_modes.mode_value("display_slots") == True :  env.mode_display_slots = True
+    # read user specified GPU device list
+    cfg_gpu_devices = []
+    if len(cfg_modes.mode_value("gpu_devices")) > 0:
+        if re.fullmatch('([0-9],)*([0-9])+', cfg_modes.mode_value("gpu_devices")):
+            gdev_items = cfg_modes.mode_value("gpu_devices").split(',')
+            cfg_gpu_devices = []
+            for gi in gdev_items:
+                cfg_gpu_devices[len(cfg_gpu_devices):] = [int(gi)]
+            if max(cfg_gpu_devices) > env.total_gpu_threads - 1:
+                print("Invalid gpu_device mode, max of ", str(cfg_gpu_devices),
+                        "is > number of GPUs [", env.total_gpu_threads, " - 1 ]")
+                cfg_gpu_devices = []
+            else:
+                print("CFG gpu_devices: ", str(cfg_gpu_devices))
+        else:
+            print("Invalid CFG gpu_devices arg: [", cfg_modes.mode_value("gpu_devices"), "]")
     if cfg_modes.mode_value("num_repetitions") != None : 
         if cfg_modes.mode_value("num_repetitions") > 0 : 
             env.repetitions = cfg_modes.mode_value("num_repetitions")
@@ -1129,6 +1152,22 @@ def main():
     if args.ref_signals == True :  env.mode_ref_signals = True
     if args.display_compact == True :  env.mode_display_compact = True
     if args.display_slots == True :  env.mode_display_slots = True
+    # read user specified GPU device list
+    specified_gpu_devices = []
+    if len(args.gpu_devices) > 0:
+        if re.fullmatch('([0-9],)*([0-9])+', args.gpu_devices):
+            gdev_items = args.gpu_devices.split(',')
+            specified_gpu_devices = []
+            for gi in gdev_items:
+                specified_gpu_devices[len(specified_gpu_devices):] = [int(gi)]
+            if max(specified_gpu_devices) > env.total_gpu_threads - 1:
+                print("Invalid gpu_device specified, max of ", str(specified_gpu_devices),
+                        "is > number of GPUs [", env.total_gpu_threads, " - 1 ]")
+                specified_gpu_devices = []
+            else:
+                print("Specified gpu_devices: ", str(specified_gpu_devices))
+        else:
+            print("Invalid gpu_devices arg: [", args.gpu_devices, "]")
     if args.num_repetitions > 0 : 
         env.repetitions = args.num_repetitions
     else:
@@ -1145,6 +1184,17 @@ def main():
         env.allocated_gthreads = specified_max_gpus
     else:
         env.allocated_gthreads = env.total_gpu_threads
+
+    if len(specified_gpu_devices) == 0:
+        if len(cfg_gpu_devices) > 0:
+            specified_gpu_devices = cfg_gpu_devices
+    if len(specified_gpu_devices) > 0:
+        if len(specified_gpu_devices) == env.allocated_gthreads:
+            env.gpu_devices = specified_gpu_devices
+            print("Set specified gpu_devices: ", str(specified_gpu_devices))
+        else:
+            print("Mismatch with allocated GPUS, specified gpu_devices NOT set: [", args.gpu_devices, "]")
+            exit(-1)
 
     env.print()
 

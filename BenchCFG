@@ -42,7 +42,9 @@
 #Specify max number of threads to load
 #mode max_threads -1
 #Specify max number of GPUs to load
-#mode max_gpus -1
+mode max_gpus 1
+#Specify GPU devices to use
+mode gpu_devices 1
 #Use standard signal WUs instead of Test WUs
 #mode ref_signals False
 ##
