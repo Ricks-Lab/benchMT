@@ -2,28 +2,30 @@
 ## Blank lines and any part of a line beginning with # are ignored
 #############################################################################
 ##
-## List of applications with desired arguments to replace the
-## default arguments in the bench script.
+## List of applications with desired arguments.
 ##
 ## Format as would be used for executing the application from a
 ## command line, app -arg -arg etc. Multiple instances of the
 ## same app with different (or same) arguments will run that
-## many if the app is in the APPS_[C,G]PU directories.
+## many if the app is in the APPS_[C,G]PU directories, although
+## the --num_repetitions argument is the preferred way of running
+## an entry more than once.
 ##
 ## Needs the full application name with extension. Zero to many
-## arguments are possible.
+## arguments are possible. The -device N option of a GPU app will
+## be ingored, as this command line option is used to manage slot
+## assignment.  Specify physical GPUs can be accomplished with the
+## --max_gpus X and --gpu_devices 0,1 options.
 ##
 ##
 ##############################################################################
-## Set benchMT command line options - Under Development
+## Set benchMT command line options
 ##############################################################################
 ## 
 ## Command line options can be specified as modes in the BenchCFG file or an
 ## alternate CFG file specified on the command line.  Options specified on
 ## the command line will override those specified with mode in a CFG file.
 ## 
-## This feature is under development in v1.1.X
-## mode values here are the default values
 ##
 #Don't ask confirmation before running jobs
 #mode yes False
@@ -46,7 +48,7 @@
 #Specify GPU devices to use
 #mode gpu_devices 0,1
 #Use standard signal WUs instead of Test WUs
-#mode ref_signals False
+#mode ref_signals True
 ##
 ##
 ##############################################################################
@@ -58,7 +60,7 @@ MBv8_8.22r3584_sse2_clAMD_HD5_x86_64-pc-linux-gnu -v 1 -instances_per_device 1 -
 #MBv8_8.04r3306_sse2_linux64 --nographics
 #MBv8_8.04r3306_sse41_linux64 --nographics
 ##MBv8_8.04r3306_ssse3_linux64 --nographics
-#MBv8_8.22r3711_sse41_x86_64-pc-linux-gnu --nographics
+MBv8_8.22r3711_sse41_x86_64-pc-linux-gnu --nographics
 #MBv8_8.22r3712_avx2_x86_64-pc-linux-gnu --nographics
 #MBv8_8.04r3306_sse42_linux64 --nographics
 #MBv8_8.05r3345_avx_linux64 --nographics

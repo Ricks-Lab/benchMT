@@ -551,6 +551,8 @@ class JOB_LIST:
         self.list = {}
 
     def read_benchcfg(self, env, modes):
+        """ read the default benchCFG file or one specified by user on command line.  Extract 
+        modes, app_names and app_args"""
         clfptr = open(env.command_line_file, 'r')
         for line in clfptr:
             line = line.strip()
@@ -596,6 +598,8 @@ class JOB_LIST:
         clfptr.close
 
     def read_wu_list(self, env):
+        """Prepare a list of WUs based on the contents of the wu_path or std_signal_path
+        depending on command line arguments or CFG mode settings"""
         if env.mode_ref_signals == True :
             wu_path=env.wu_std_signal_path
         else :
@@ -611,6 +615,8 @@ class JOB_LIST:
                 self.list[job.uuid] = job
 
     def create_ref_list(self, ref_app, wulist, env):
+        """create a reference job entry for every WU found using the specified 
+        ref_app.  Set state to pending"""
         for wu_key, wu_value in wulist.list.items() :
             job = BENCH_JOB(uuid4().hex)
             job.copy(ref_app)
@@ -632,6 +638,8 @@ class JOB_LIST:
                 v.complete_time = "NA"
 
     def create_job_list(self, applist, wulist, env):
+        """ based on a list of apps and a list of WUs, create an job list which uses every app
+        to run every WU"""
         for i in range(0, env.repetitions):
             for wu_key, wu_value in wulist.list.items() :
                 for app_key, app_value in applist.list.items() :

@@ -5,7 +5,7 @@
  less than total number of CPU threads can be specified in the command line.  This tool will read a
  list of MB apps/args from the benchCFG file and search for the specified MB apps in the APP_CPU
  and APP_GPU directories to validate and determine platform.  It will then leverage allocated
- threads, as specified, to run all benchmark jobs storing results in the testData directory.  Use
+ threads, as specified, to run all benchmark jobs, storing results in the testData directory.  Use
  the *--help* option to get a description of valid command line arguments.
 
  By default, a summary list of all jobs will update in the display as the program progresses.  If
@@ -30,13 +30,17 @@
  files for each job run. A run name can be specified with the *--run_name* commane line option. This
  name will be included in the name of the testData subdirectory for the current run.
 
+## New in this Release  -  V1.1.0
+* Command line options can now be specified mode lines of the BenchCFG file.  Options given on the command line will override modes specified in the CFG file.
+* An alternative CFG file can now be specified as a command line option.
+* Signal counts and Angle Range are now included in the psv and txt summary files.
+* Remove -device arg if specified, since -device is automatically added based on slot assignment.
+* Added -gpu_devices x,y command line option to specify which GPU devices the user would like to include in the benchmark run.
+* Added a lock_file in the working directory to prevent a second occurrence of benchMT from using the same directory.
 
-## Development plans
+## Development Plans and Known Limitations
 * GPU multi-threaded implementation. Currently total_gpu_threads = total_gpu_count, a future development opportunity is to implement a max number of threads per GPU
 * Consider using opencl instead of lshw to get valid GPU compute platforms, but maybe won't work for cuda apps
-* Read benchMT command line options from mode lines in BenchCFG file
-* Remove -device arg if specified, since -device is automatically added based on slot assignment
-* Need to make a lock_file in the working directory to prevent a second occurrence of benchMT from using the same directory
 * Should consider executing job with time command.  This should give total and CPU time metrics
 * Need to figure out how to run a job without a shell
 * Deal with an immediate fail to spawn a process when executing a job
