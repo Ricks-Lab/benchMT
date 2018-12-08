@@ -38,7 +38,7 @@
 #Display run status by slots instead of jobs
 #mode display_slots False
 #Specify number of times to run benchmark
-#mode num_repetitions 1
+mode num_repetitions 2
 #Specify max number of threads to load
 #mode max_threads -1
 #Specify max number of GPUs to load

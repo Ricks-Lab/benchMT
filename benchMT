@@ -1168,7 +1168,7 @@ def main():
                 print("Specified gpu_devices: ", str(specified_gpu_devices))
         else:
             print("Invalid gpu_devices arg: [", args.gpu_devices, "]")
-    if args.num_repetitions > 0 : 
+    if args.num_repetitions > 1 : 
         env.repetitions = args.num_repetitions
     else:
         print("Invalid number of repetitions specified ["+ str(args.num_repetitions) + "].  Ignoring...")
