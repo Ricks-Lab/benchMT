@@ -38,13 +38,13 @@
 #Display run status by slots instead of jobs
 #mode display_slots False
 #Specify number of times to run benchmark
-mode num_repetitions 2
+#mode num_repetitions 2
 #Specify max number of threads to load
 #mode max_threads -1
 #Specify max number of GPUs to load
-mode max_gpus 1
+#mode max_gpus 2
 #Specify GPU devices to use
-mode gpu_devices 1
+#mode gpu_devices 0,1
 #Use standard signal WUs instead of Test WUs
 #mode ref_signals False
 ##

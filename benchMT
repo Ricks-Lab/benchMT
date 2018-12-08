@@ -516,6 +516,7 @@ class BENCH_JOB:
         self.slot_dir = ""
         self.similarity = "UNKNOWN"
         self.q_value = "UNKNOWN"
+        self.angle_range = "UNKNOWN"
 
     def copy(self, src):
         # Don't copy uuid self.uuid = item_id src.uuid
@@ -533,6 +534,7 @@ class BENCH_JOB:
         self.slot_dir = src.slot_dir
         self.similarity = src.similarity
         self.q_value = src.q_value
+        self.angle_range = src.angle_range
 
 class JOB_LIST:
     def __init__(self):
@@ -706,7 +708,7 @@ class JOB_LIST:
             print(v.wu_name, file=fileptr)
 
     def psv_print(self, env, fileptr=sys.stdout):
-        print("Host", "CPU","CPU-MHz", "JobID", "Platform", "app_name", "app_args", "wu_name", "start_time", "complete_time",
+        print("Host", "CPU","CPU-MHz", "JobID", "Platform", "app_name", "app_args", "wu_name", "angle_range", "start_time", "complete_time",
                 "elapsed_time", "state", "Q", "similarity", "error", file=fileptr, sep="|")
         for k, v in self.list.items() :
             if (v.state == "ACTIVE" or v.state == "COMPLETE") and v.start_time != "NA" :
@@ -723,8 +725,9 @@ class JOB_LIST:
                 error_str = "None"
             else:
                 error_str = v.error
-            print(env.hostname, env.cpu_model, env.cpu_mhz, v.uuid, v.platform, v.app_name, v.app_args, v.wu_name, start_time_str,
-                    complete_time_str, elapsed_time, v.state, v.q_value, v.similarity, error_str, file=fileptr, sep="|")
+            print(env.hostname, env.cpu_model, env.cpu_mhz, v.uuid, v.platform, v.app_name, v.app_args,
+                    v.wu_name, v.angle_range, start_time_str, complete_time_str, elapsed_time, v.state,
+                    v.q_value, v.similarity, error_str, file=fileptr, sep="|")
 
     def jobcount_bystatus(self):
         num_pending_jobs = {"PENDING":0, "COMPLETE":0, "ACTIVE":0, "TOTAL":0}
@@ -817,11 +820,26 @@ class JOB_LIST:
                             else:
                                 v.error = v.error + "[No stderr.txt file]"
 
+                            # TODO get parameters like AR from results file to write out in psv/txt summaries
+                            cmd_str = 'cat ' + cur_result_file + ' 2>/dev/null | grep true_angle_range'
+                            cmd = subprocess.Popen(cmd_str, shell=True, stdout=subprocess.PIPE)
+                            for line in cmd.stdout:
+                                linestr = line.decode("utf-8").strip()
+                                searchObj = re.search('true_angle_range', linestr)
+                                if(searchObj != None):
+                                    lineItem = linestr.split('true_angle_range')
+                                    ar_str = re.sub(r'[^\d.]', '', lineItem[1])
+                                    print("Angle Range: ["+ar_str + "]")
+                                    v.angle_range = float(ar_str)
+                                    break
+                            cmd.stdout.close()
+
                             # write to run log
                             print("=".ljust(80, "="), file=env.sum_file_ptr)
                             print("App Name: ", v.app_name, file=env.sum_file_ptr)
                             print("App Args: ", v.app_args, file=env.sum_file_ptr)
                             print("WU Name:  ", v.wu_name, file=env.sum_file_ptr)
+                            print("Angle Range:  ", v.angle_range, file=env.sum_file_ptr)
                             print("Results:  ", cur_result_file, file=env.sum_file_ptr)
                             print("REF Name: ", ref_result_file, file=env.sum_file_ptr)
                             print("", file=env.sum_file_ptr)
@@ -1117,7 +1135,7 @@ def main():
     if cfg_modes.mode_value("display_slots") == True :  env.mode_display_slots = True
     # read user specified GPU device list
     cfg_gpu_devices = []
-    if len(cfg_modes.mode_value("gpu_devices")) > 0:
+    if cfg_modes.mode_value("gpu_devices") != None:
         if re.fullmatch('([0-9],)*([0-9])+', cfg_modes.mode_value("gpu_devices")):
             gdev_items = cfg_modes.mode_value("gpu_devices").split(',')
             cfg_gpu_devices = []
@@ -1170,8 +1188,6 @@ def main():
             print("Invalid gpu_devices arg: [", args.gpu_devices, "]")
     if args.num_repetitions > 1 : 
         env.repetitions = args.num_repetitions
-    else:
-        print("Invalid number of repetitions specified ["+ str(args.num_repetitions) + "].  Ignoring...")
 
     if args.max_threads > 0: specified_max_threads = args.max_threads
     if specified_max_threads > 0 and specified_max_threads < env.total_cpu_threads :
