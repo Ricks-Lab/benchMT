@@ -516,7 +516,12 @@ class BENCH_JOB:
         self.slot_dir = ""
         self.similarity = "UNKNOWN"
         self.q_value = "UNKNOWN"
-        self.angle_range = "UNKNOWN"
+        self.angle_range = 0.0
+        self.cnt_spike = 0
+        self.cnt_autocorr = 0
+        self.cnt_pulse = 0
+        self.cnt_triplet = 0
+        self.cnt_gaussian = 0
 
     def copy(self, src):
         # Don't copy uuid self.uuid = item_id src.uuid
@@ -535,13 +540,18 @@ class BENCH_JOB:
         self.similarity = src.similarity
         self.q_value = src.q_value
         self.angle_range = src.angle_range
+        self.cnt_spike = src.cnt_spike
+        self.cnt_autocorr = src.cnt_autocorr
+        self.cnt_pulse = src.cnt_pulse
+        self.cnt_triplet = src.cnt_triplet
+        self.cnt_gaussian = src.cnt_gaussian
 
 class JOB_LIST:
     def __init__(self):
         self.list = {}
 
     def read_benchcfg(self, env, modes):
-        clfptr = open(env.command_line_file)
+        clfptr = open(env.command_line_file, 'r')
         for line in clfptr:
             line = line.strip()
             if len(line) == 0 : continue
@@ -708,13 +718,16 @@ class JOB_LIST:
             print(v.wu_name, file=fileptr)
 
     def psv_print(self, env, fileptr=sys.stdout):
-        print("Host", "CPU","CPU-MHz", "JobID", "Platform", "app_name", "app_args", "wu_name", "angle_range", "start_time", "complete_time",
+        print("Host", "CPU","CPU-MHz", "JobID", "Platform", "app_name", "app_args", "wu_name", "angle_range",
+                "spike_cnt", "autocorr_cnt", "pulse_cnt", "triplet_cnt", "gaussian_cnt", "start_time", "complete_time",
                 "elapsed_time", "state", "Q", "similarity", "error", file=fileptr, sep="|")
         for k, v in self.list.items() :
             if (v.state == "ACTIVE" or v.state == "COMPLETE") and v.start_time != "NA" :
                 start_time_str = v.start_time.strftime('%H:%M:%S')
             else :
                 start_time_str = "SKIPPED"
+                #don't output skipped items to the psv file
+                continue
             if v.state == "COMPLETE" and v.start_time != "NA" :
                 complete_time_str = v.complete_time.strftime('%H:%M:%S')
                 elapsed_time = v.complete_time - v.start_time
@@ -726,7 +739,8 @@ class JOB_LIST:
             else:
                 error_str = v.error
             print(env.hostname, env.cpu_model, env.cpu_mhz, v.uuid, v.platform, v.app_name, v.app_args,
-                    v.wu_name, v.angle_range, start_time_str, complete_time_str, elapsed_time, v.state,
+                    v.wu_name, v.angle_range, v.cnt_spike, v.cnt_autocorr, v.cnt_pulse, v.cnt_triplet,
+                    v.cnt_gaussian, start_time_str, complete_time_str, elapsed_time, v.state,
                     v.q_value, v.similarity, error_str, file=fileptr, sep="|")
 
     def jobcount_bystatus(self):
@@ -820,26 +834,64 @@ class JOB_LIST:
                             else:
                                 v.error = v.error + "[No stderr.txt file]"
 
-                            # TODO get parameters like AR from results file to write out in psv/txt summaries
-                            cmd_str = 'cat ' + cur_result_file + ' 2>/dev/null | grep true_angle_range'
-                            cmd = subprocess.Popen(cmd_str, shell=True, stdout=subprocess.PIPE)
-                            for line in cmd.stdout:
-                                linestr = line.decode("utf-8").strip()
-                                searchObj = re.search('true_angle_range', linestr)
+                            # Get parameters like AR and signal counts from results file
+                            v.cnt_spike = 0
+                            v.cnt_autocorr = 0
+                            v.cnt_pulse = 0
+                            v.cnt_triplet = 0
+                            v.cnt_gaussian = 0
+
+                            resfptr = open(cur_result_file, 'r')
+                            for line in resfptr:
+                                linestr = line.strip()
+                                if len(linestr) == 0 : continue
+                                if linestr[0] == '#': continue
+                                if len(linestr) <2 : continue
+                                #cmd_str = 'cat ' + cur_result_file + ' 2>/dev/null | grep true_angle_range'
+                                #cmd = subprocess.Popen(cmd_str, shell=True, stdout=subprocess.PIPE)
+                                #for line in cmd.stdout:
+                                #linestr = line.decode("utf-8").strip()
+                                if v.angle_range == 0:
+                                    searchObj = re.search('true_angle_range', linestr)
+                                    if(searchObj != None):
+                                        lineItem = linestr.split('true_angle_range')
+                                        ar_str = re.sub(r'[^\d.]', '', lineItem[1])
+                                        print("Angle Range: ["+ar_str + "]")
+                                        v.angle_range = float(ar_str)
+                                        continue
+                                searchObj = re.search(r'<spike>', linestr)
                                 if(searchObj != None):
-                                    lineItem = linestr.split('true_angle_range')
-                                    ar_str = re.sub(r'[^\d.]', '', lineItem[1])
-                                    print("Angle Range: ["+ar_str + "]")
-                                    v.angle_range = float(ar_str)
-                                    break
-                            cmd.stdout.close()
+                                    v.cnt_spike += 1
+                                    continue
+                                searchObj = re.search(r'<autocorr>', linestr)
+                                if(searchObj != None):
+                                    v.cnt_autocorr += 1
+                                    continue
+                                searchObj = re.search(r'<pulse>', linestr)
+                                if(searchObj != None):
+                                    v.cnt_pulse += 1
+                                    continue
+                                searchObj = re.search(r'<triplet>', linestr)
+                                if(searchObj != None):
+                                    v.cnt_triplet += 1
+                                    continue
+                                searchObj = re.search(r'<gaussian>', linestr)
+                                if(searchObj != None):
+                                    v.cnt_gaussian += 1
+                                    continue
+                            resfptr.close()
 
                             # write to run log
                             print("=".ljust(80, "="), file=env.sum_file_ptr)
                             print("App Name: ", v.app_name, file=env.sum_file_ptr)
                             print("App Args: ", v.app_args, file=env.sum_file_ptr)
                             print("WU Name:  ", v.wu_name, file=env.sum_file_ptr)
-                            print("Angle Range:  ", v.angle_range, file=env.sum_file_ptr)
+                            print("WU Angle Range: ", v.angle_range, file=env.sum_file_ptr)
+                            print("Spike count:    ", v.cnt_spike, file=env.sum_file_ptr)
+                            print("Autocorr count: ", v.cnt_autocorr, file=env.sum_file_ptr)
+                            print("Pulse count:    ", v.cnt_pulse, file=env.sum_file_ptr)
+                            print("Triplet count:  ", v.cnt_triplet, file=env.sum_file_ptr)
+                            print("Gaussian count: ", v.cnt_gaussian, file=env.sum_file_ptr)
                             print("Results:  ", cur_result_file, file=env.sum_file_ptr)
                             print("REF Name: ", ref_result_file, file=env.sum_file_ptr)
                             print("", file=env.sum_file_ptr)

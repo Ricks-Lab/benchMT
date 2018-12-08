@@ -40,7 +40,7 @@
 #Specify number of times to run benchmark
 #mode num_repetitions 2
 #Specify max number of threads to load
-#mode max_threads -1
+#mode max_threads 2
 #Specify max number of GPUs to load
 #mode max_gpus 2
 #Specify GPU devices to use
