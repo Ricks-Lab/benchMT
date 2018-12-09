@@ -38,6 +38,8 @@
 * Remove app *-device N* arg if specified, since -device is automatically added based on slot assignment.
 * Added *--gpu_devices x,y* command line option to specify which GPU devices the user would like to include in the benchmark run.
 * Added a lock_file in the working directory to prevent a second occurrence of benchMT from using the same directory.
+* Updated the 15 reference WUs in the *WU_test/safe* directory.
+* Changed *--ref_signals* option to *--std_signals* for clarity.
 
 ## Development Plans and Known Limitations
 * Currently, running more than one job at a time on a single GPU is not supported. 

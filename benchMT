@@ -19,7 +19,7 @@
  is required, since boinccmd is used.
 
  All WUs in the WU_test directory will be used in the creation of jobs to be run, unless the 
- --ref_signals option is used, in which case, WUs in the WU_std_signal will be used.  The
+ --std_signals option is used, in which case, WUs in the WU_std_signal will be used.  The
  APPS_GPU and APPS_CPU can have more apps than are specified to run in the BenchCFG file, but must
  contain apps specified in BenchCFG.  The APPS_REF must contain a single CPU reference app with a
  file prefix of "ref-cpu.".  The stock CPU app is suggested, as this is only used to test
@@ -104,7 +104,7 @@ class CFG_MODES:
                 "max_threads" : None,
                 "max_gpus" : None,
                 "gpu_devices" : None,
-                "ref_signals" : None,
+                "std_signals" : None,
                 }
         self.type = {
                 "yes" : "Logical",
@@ -117,7 +117,7 @@ class CFG_MODES:
                 "max_threads" : "Numeric",
                 "max_gpus" : "Numeric",
                 "gpu_devices" : "String",
-                "ref_signals" : "Logical",
+                "std_signals" : "Logical",
                 }
 
     def set_mode(self, mode_name, mode_value):
@@ -179,7 +179,7 @@ class BENCH_ENV:
         self.boinc_home = ""
         self.boinccmd = ""
         self.wucmpcmd = ""
-        self.mode_ref_signals = False
+        self.mode_std_signals = False
         self.repetitions = 1
         self.summary_path = ""
         self.run_name = ""
@@ -600,7 +600,7 @@ class JOB_LIST:
     def read_wu_list(self, env):
         """Prepare a list of WUs based on the contents of the wu_path or std_signal_path
         depending on command line arguments or CFG mode settings"""
-        if env.mode_ref_signals == True :
+        if env.mode_std_signals == True :
             wu_path=env.wu_std_signal_path
         else :
             wu_path=env.wu_path
@@ -1136,7 +1136,7 @@ def main():
     parser.add_argument("--max_threads", help="Specify max number of threads to load", type=int, default=0)
     parser.add_argument("--max_gpus", help="Specify max number of GPUs to load", type=int, default=0)
     parser.add_argument("--gpu_devices", help="Specify which GPUs to use: 0,1,2", type=str, default="")
-    parser.add_argument("--ref_signals", help="Use standard signal WUs instead of Test WUs",
+    parser.add_argument("--std_signals", help="Use standard signal WUs instead of Test WUs",
                         action="store_true", default=False)
     parser.add_argument("--admin_mkdirs", help="Make required directories", action="store_true", default=False)
     parser.add_argument("-d", "--debug", help="Debug output", action="store_true", default=False)
@@ -1190,7 +1190,7 @@ def main():
                 env.run_name = cfg_modes.mode_value("run_name").replace(' ','')
                 env.run_name = env.run_name.replace('/','')
                 env.run_name = env.run_name.replace('\\','')
-    if cfg_modes.mode_value("ref_signals") == True :  env.mode_ref_signals = True
+    if cfg_modes.mode_value("std_signals") == True :  env.mode_std_signals = True
     if cfg_modes.mode_value("display_compact") == True :  env.mode_display_compact = True
     if cfg_modes.mode_value("display_slots") == True :  env.mode_display_slots = True
     # read user specified GPU device list
@@ -1227,7 +1227,7 @@ def main():
             env.run_name = args.run_name.replace(' ','')
             env.run_name = env.run_name.replace('/','')
             env.run_name = env.run_name.replace('\\','')
-    if args.ref_signals == True :  env.mode_ref_signals = True
+    if args.std_signals == True :  env.mode_std_signals = True
     if args.display_compact == True :  env.mode_display_compact = True
     if args.display_slots == True :  env.mode_display_slots = True
     # read user specified GPU device list

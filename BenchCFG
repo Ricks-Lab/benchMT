@@ -14,8 +14,9 @@
 ## Needs the full application name with extension. Zero to many
 ## arguments are possible. The -device N option of a GPU app will
 ## be ingored, as this command line option is used to manage slot
-## assignment.  Specify physical GPUs can be accomplished with the
-## --max_gpus X and --gpu_devices 0,1 options.
+## assignment.  Specifing physical GPUs can be accomplished with the
+## --max_gpus X and --gpu_devices 0,1 options. The value X must be 
+## equal to the number of devices specified.
 ##
 ##
 ##############################################################################
@@ -48,12 +49,13 @@
 #Specify GPU devices to use
 #mode gpu_devices 0,1
 #Use standard signal WUs instead of Test WUs
-#mode ref_signals True
+#mode std_signals True
 ##
 ##
 ##############################################################################
 ## Entries to define benchmark run
 ##############################################################################
+##
 MBv8_8.22r3584_sse2_clAMD_HD5_x86_64-pc-linux-gnu -v 1 -instances_per_device 1 -sbs 2048 -period_iterations_num 1 -tt 500 -spike_fft_thresh 8192 -tune 1 64 1 4 -oclfft_tune_gr 256 -oclfft_tune_lr 16 -oclfft_tune_wg 256 -oclfft_tune_ls 512 -oclfft_tune_bn 64 -oclfft_tune_cw 64 -hp -high_perf -no_defaults_scaling
 #MBv8_8.22r3584_sse2_clAMD_HD5_x86_64-pc-linux-gnu -v 1
 
