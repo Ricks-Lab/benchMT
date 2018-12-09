@@ -19,7 +19,7 @@
  is required, since boinccmd is used.
 
  All WUs in the WU_test directory will be used in the creation of jobs to be run, unless the 
- --ref_signals option is used, in which case, WUs in the WU_std_signal will be used.  The
+ --std_signals option is used, in which case, WUs in the WU_std_signal will be used.  The
  APPS_GPU and APPS_CPU can have more apps than are specified to run in the BenchCFG file, but must
  contain apps specified in BenchCFG.  The APPS_REF must contain a single CPU reference app with a
  file prefix of "ref-cpu.".  The stock CPU app is suggested, as this is only used to test
@@ -52,9 +52,9 @@ __copyright__ = "Copyright (C) 2018 RueiKe"
 __credits__ = "Testing: Keith Myers"
 __license__ = "GNU General Public License"
 __program_name__ = "benchMT"
-__version__ = "v1.00"
+__version__ = "v1.1.0"
 __maintainer__ = "RueiKe"
-__status__ = "Initial Release"
+__status__ = "CFG Features under development"
 
 import argparse
 import re
@@ -91,6 +91,63 @@ class MB_CONST:
         self.DEBUG = False
 mb_const=MB_CONST()
 
+class CFG_MODES:
+    def __init__(self):
+        self.modes = {
+                "yes" : None,
+                "run_name" : None,
+                "boinc_home" : None,
+                "noBS" : None,
+                "display_compact" : None,
+                "display_slots" : None,
+                "num_repetitions" : None,
+                "max_threads" : None,
+                "max_gpus" : None,
+                "gpu_devices" : None,
+                "std_signals" : None,
+                }
+        self.type = {
+                "yes" : "Logical",
+                "run_name" : "String",
+                "boinc_home" : "String",
+                "noBS" : "Logical",
+                "display_compact" : "Logical",
+                "display_slots" : "Logical",
+                "num_repetitions" : "Numeric",
+                "max_threads" : "Numeric",
+                "max_gpus" : "Numeric",
+                "gpu_devices" : "String",
+                "std_signals" : "Logical",
+                }
+
+    def set_mode(self, mode_name, mode_value):
+        if mode_name in self.modes.keys() == False:
+            return False
+
+        if self.type[mode_name] == "Logical":
+            if mode_value == "True":
+                self.modes[mode_name] = True
+                return True
+            elif mode_value == "False":
+                self.modes[mode_name] = False
+                return True
+            return False
+        elif self.type[mode_name] == "Numeric":
+            if re.fullmatch('[-]*[0-9]+', mode_value):
+                self.modes[mode_name] = int(mode_value)
+                return True
+            else:
+                return False
+        elif self.type[mode_name] == "String":
+            self.modes[mode_name] = mode_value
+        else:
+            return False
+
+    def mode_value(self, mode_name):
+        if mode_name in self.modes.keys() == False:
+            return False
+        return(self.modes[mode_name])
+
 
 class BENCH_ENV:
     def __init__(self):
@@ -107,6 +164,7 @@ class BENCH_ENV:
         self.total_gpu_count = 0
         self.allocated_cthreads = 0
         self.allocated_gthreads = 0
+        self.gpu_devices = []
         self.gpu_str = ""
         self.current_dir = ""
         self.cpu_app_path = ""
@@ -121,7 +179,7 @@ class BENCH_ENV:
         self.boinc_home = ""
         self.boinccmd = ""
         self.wucmpcmd = ""
-        self.mode_ref_signals = False
+        self.mode_std_signals = False
         self.repetitions = 1
         self.summary_path = ""
         self.run_name = ""
@@ -130,6 +188,7 @@ class BENCH_ENV:
         self.psv_file = ""
         self.psv_file_ptr = None
         self.workdir_path = ""
+        self.lockfile = ""
         self.mode_display_slots = False
         self.mode_display_compact = False
 
@@ -221,6 +280,8 @@ class BENCH_ENV:
             cmd.stdout.close()
             self.total_gpu_count =  gpu_cnt
             self.total_gpu_threads =  gpu_cnt
+            for gi in range(0, gpu_cnt):
+                self.gpu_devices[len(self.gpu_devices):] = [gi]
             self.gpu_str =  gpu_str
 
         # Set working directories
@@ -235,6 +296,7 @@ class BENCH_ENV:
         self.testdata_path = self.current_dir + "/" + mb_const.testdata_subdir
         self.ref_results_path = self.ref_app_path + "/" + mb_const.ref_results_subdir
         self.slots_path = self.workdir_path + "/" + mb_const.slots_subdir
+        self.lockfile = self.workdir_path + "/.benchMTlockfile" 
         self.summary_path = self.testdata_path + "/" + self.hostname + "_benchMT_" + self.run_name + "_" + self.time_now_short
         self.summary_file = self.summary_path + "/" + self.hostname + ".testlog." + self.time_now_short + ".txt"
         self.init_data_template_file = self.workdir_path + "/init_data.xml.template"
@@ -327,6 +389,37 @@ class BENCH_ENV:
             print("TestData Path [", self.testdata_path,"] doesn't exist, making...")
             os.mkdir(self.testdata_path)
 
+    def is_bench_conflict(self):
+        """return true if there is another instance running.  Check lock file for pid
+        if there is a valid process with that pid, then there is a conflict.
+
+        if no conflict, then write current pid to lockfile and return false"""
+        mypid = os.getpid()
+        if(os.path.isfile(self.lockfile) == False): 
+            # no lockfile, so assume no conflict
+            file_ptr = open(self.lockfile, 'w')
+            print(str(mypid), file=file_ptr)
+            file_ptr.close()
+            return(False)
+        else:
+            file_ptr = open(self.lockfile, 'r')
+            line = file_ptr.readline().strip()
+            file_ptr.close()
+            if line.isdigit():
+                pid = int(line)
+                try:
+                    os.kill(pid, 0)
+                except OSError:
+                    #not running
+                    file_ptr = open(self.lockfile, 'w')
+                    print(str(mypid), file=file_ptr)
+                    file_ptr.close()
+                    return(False)
+                else:
+                    #running
+                    return(True)
+
+
     def is_boinc_running(self):
         cmd = subprocess.Popen('ps -C boinc -o pid 2>/dev/null', shell=True, stdout=subprocess.PIPE)
         output = cmd.stdout.read()
@@ -385,6 +478,7 @@ class BENCH_ENV:
         print("CPU Threads: ", self.total_cpu_threads, file=fileptr)
         print("GPU Count: ", self.total_gpu_count, file=fileptr)
         print("GPU Threads: ", self.total_gpu_threads, file=fileptr)
+        print("GPU Devices: ", str(self.gpu_devices), file=fileptr)
         print("GPU Details: ", self.gpu_str, file=fileptr)
         print("Current Dir: ", self.current_dir, file=fileptr)
         print("Slots Dir: ", self.slots_path, file=fileptr)
@@ -422,6 +516,12 @@ class BENCH_JOB:
         self.slot_dir = ""
         self.similarity = "UNKNOWN"
         self.q_value = "UNKNOWN"
+        self.angle_range = 0.0
+        self.cnt_spike = 0
+        self.cnt_autocorr = 0
+        self.cnt_pulse = 0
+        self.cnt_triplet = 0
+        self.cnt_gaussian = 0
 
     def copy(self, src):
         # Don't copy uuid self.uuid = item_id src.uuid
@@ -439,26 +539,53 @@ class BENCH_JOB:
         self.slot_dir = src.slot_dir
         self.similarity = src.similarity
         self.q_value = src.q_value
+        self.angle_range = src.angle_range
+        self.cnt_spike = src.cnt_spike
+        self.cnt_autocorr = src.cnt_autocorr
+        self.cnt_pulse = src.cnt_pulse
+        self.cnt_triplet = src.cnt_triplet
+        self.cnt_gaussian = src.cnt_gaussian
 
 class JOB_LIST:
     def __init__(self):
         self.list = {}
 
-    # TODO read benchMT command line options from mode lines in BenchCFG file
-    def read_benchcfg(self, env):
-        clfptr = open(env.command_line_file)
+    def read_benchcfg(self, env, modes):
+        """ read the default benchCFG file or one specified by user on command line.  Extract 
+        modes, app_names and app_args"""
+        clfptr = open(env.command_line_file, 'r')
         for line in clfptr:
-            line = line.replace('\n', '')
-            line = line.replace('\r', '')
+            line = line.strip()
             if len(line) == 0 : continue
             if line[0] == '#': continue
             if len(line) <2 : continue
             lineitems = line.split(sep=' ', maxsplit=1)
+            #check if entry is a mode item
+            if lineitems[0] == "mode":
+                modeitems = lineitems[1].split(sep=' ', maxsplit=2)
+                if len(modeitems) < 2 :
+                    continue
+                #process mode
+                mode_name = modeitems[0].strip()
+                mode_value = modeitems[1].strip()
+                if modes.set_mode(mode_name, mode_value) == False:
+                    print("Invalid mode specified in CFG file: [", mode_name, "][", mode_value, "]", sep='')
+                else:
+                    print("Read valid mode from CFG file: [", mode_name, "][", mode_value, "]", sep='')
+                continue
+
+            #process appname and apparg
             job = BENCH_JOB(uuid4().hex)
             job.app_name = lineitems[0]
             if len(lineitems) > 1:
-                # TODO remove -device arg if specified
-                job.app_args = lineitems[1]
+                argstr = lineitems[1]
+                searchObj = re.search(r'[-]+[dD]evice\s+[0-9]+', argstr)
+                if(searchObj != None):
+                    argstr = re.sub(r'[-]+[dD]evice\s+[0-9]+', '', argstr)
+                    print(lineitems[1])
+                    print("Removed [-device X] argument as conflicts with slot assignment process")
+                    print(argstr)
+                job.app_args = argstr
             else:
                 job.app_args = ""
             if(os.path.isfile(env.cpu_app_path + job.app_name) == True): 
@@ -471,7 +598,9 @@ class JOB_LIST:
         clfptr.close
 
     def read_wu_list(self, env):
-        if env.mode_ref_signals == True :
+        """Prepare a list of WUs based on the contents of the wu_path or std_signal_path
+        depending on command line arguments or CFG mode settings"""
+        if env.mode_std_signals == True :
             wu_path=env.wu_std_signal_path
         else :
             wu_path=env.wu_path
@@ -486,6 +615,8 @@ class JOB_LIST:
                 self.list[job.uuid] = job
 
     def create_ref_list(self, ref_app, wulist, env):
+        """create a reference job entry for every WU found using the specified 
+        ref_app.  Set state to pending"""
         for wu_key, wu_value in wulist.list.items() :
             job = BENCH_JOB(uuid4().hex)
             job.copy(ref_app)
@@ -507,6 +638,8 @@ class JOB_LIST:
                 v.complete_time = "NA"
 
     def create_job_list(self, applist, wulist, env):
+        """ based on a list of apps and a list of WUs, create an job list which uses every app
+        to run every WU"""
         for i in range(0, env.repetitions):
             for wu_key, wu_value in wulist.list.items() :
                 for app_key, app_value in applist.list.items() :
@@ -593,13 +726,16 @@ class JOB_LIST:
             print(v.wu_name, file=fileptr)
 
     def psv_print(self, env, fileptr=sys.stdout):
-        print("Host", "CPU","CPU-MHz", "JobID", "Platform", "app_name", "app_args", "wu_name", "start_time", "complete_time",
+        print("Host", "CPU","CPU-MHz", "JobID", "Platform", "app_name", "app_args", "wu_name", "angle_range",
+                "spike_cnt", "autocorr_cnt", "pulse_cnt", "triplet_cnt", "gaussian_cnt", "start_time", "complete_time",
                 "elapsed_time", "state", "Q", "similarity", "error", file=fileptr, sep="|")
         for k, v in self.list.items() :
             if (v.state == "ACTIVE" or v.state == "COMPLETE") and v.start_time != "NA" :
                 start_time_str = v.start_time.strftime('%H:%M:%S')
             else :
                 start_time_str = "SKIPPED"
+                #don't output skipped items to the psv file
+                continue
             if v.state == "COMPLETE" and v.start_time != "NA" :
                 complete_time_str = v.complete_time.strftime('%H:%M:%S')
                 elapsed_time = v.complete_time - v.start_time
@@ -610,8 +746,10 @@ class JOB_LIST:
                 error_str = "None"
             else:
                 error_str = v.error
-            print(env.hostname, env.cpu_model, env.cpu_mhz, v.uuid, v.platform, v.app_name, v.app_args, v.wu_name, start_time_str,
-                    complete_time_str, elapsed_time, v.state, v.q_value, v.similarity, error_str, file=fileptr, sep="|")
+            print(env.hostname, env.cpu_model, env.cpu_mhz, v.uuid, v.platform, v.app_name, v.app_args,
+                    v.wu_name, v.angle_range, v.cnt_spike, v.cnt_autocorr, v.cnt_pulse, v.cnt_triplet,
+                    v.cnt_gaussian, start_time_str, complete_time_str, elapsed_time, v.state,
+                    v.q_value, v.similarity, error_str, file=fileptr, sep="|")
 
     def jobcount_bystatus(self):
         num_pending_jobs = {"PENDING":0, "COMPLETE":0, "ACTIVE":0, "TOTAL":0}
@@ -704,11 +842,64 @@ class JOB_LIST:
                             else:
                                 v.error = v.error + "[No stderr.txt file]"
 
+                            # Get parameters like AR and signal counts from results file
+                            v.cnt_spike = 0
+                            v.cnt_autocorr = 0
+                            v.cnt_pulse = 0
+                            v.cnt_triplet = 0
+                            v.cnt_gaussian = 0
+
+                            resfptr = open(cur_result_file, 'r')
+                            for line in resfptr:
+                                linestr = line.strip()
+                                if len(linestr) == 0 : continue
+                                if linestr[0] == '#': continue
+                                if len(linestr) <2 : continue
+                                #cmd_str = 'cat ' + cur_result_file + ' 2>/dev/null | grep true_angle_range'
+                                #cmd = subprocess.Popen(cmd_str, shell=True, stdout=subprocess.PIPE)
+                                #for line in cmd.stdout:
+                                #linestr = line.decode("utf-8").strip()
+                                if v.angle_range == 0:
+                                    searchObj = re.search('true_angle_range', linestr)
+                                    if(searchObj != None):
+                                        lineItem = linestr.split('true_angle_range')
+                                        ar_str = re.sub(r'[^\d.]', '', lineItem[1])
+                                        print("Angle Range: ["+ar_str + "]")
+                                        v.angle_range = float(ar_str)
+                                        continue
+                                searchObj = re.search(r'<spike>', linestr)
+                                if(searchObj != None):
+                                    v.cnt_spike += 1
+                                    continue
+                                searchObj = re.search(r'<autocorr>', linestr)
+                                if(searchObj != None):
+                                    v.cnt_autocorr += 1
+                                    continue
+                                searchObj = re.search(r'<pulse>', linestr)
+                                if(searchObj != None):
+                                    v.cnt_pulse += 1
+                                    continue
+                                searchObj = re.search(r'<triplet>', linestr)
+                                if(searchObj != None):
+                                    v.cnt_triplet += 1
+                                    continue
+                                searchObj = re.search(r'<gaussian>', linestr)
+                                if(searchObj != None):
+                                    v.cnt_gaussian += 1
+                                    continue
+                            resfptr.close()
+
                             # write to run log
                             print("=".ljust(80, "="), file=env.sum_file_ptr)
                             print("App Name: ", v.app_name, file=env.sum_file_ptr)
                             print("App Args: ", v.app_args, file=env.sum_file_ptr)
                             print("WU Name:  ", v.wu_name, file=env.sum_file_ptr)
+                            print("WU Angle Range: ", v.angle_range, file=env.sum_file_ptr)
+                            print("Spike count:    ", v.cnt_spike, file=env.sum_file_ptr)
+                            print("Autocorr count: ", v.cnt_autocorr, file=env.sum_file_ptr)
+                            print("Pulse count:    ", v.cnt_pulse, file=env.sum_file_ptr)
+                            print("Triplet count:  ", v.cnt_triplet, file=env.sum_file_ptr)
+                            print("Gaussian count: ", v.cnt_gaussian, file=env.sum_file_ptr)
                             print("Results:  ", cur_result_file, file=env.sum_file_ptr)
                             print("REF Name: ", ref_result_file, file=env.sum_file_ptr)
                             print("", file=env.sum_file_ptr)
@@ -800,7 +991,7 @@ class SLOTS_LIST:
             #copy .cl files to workdir
             for file_str in glob.glob(env.gpu_app_path + "*.cl"):
                 shutil.copy2(file_str, env.workdir_path +"/")
-        gpu_device_id = 0
+        gpu_device_index = 0
         for k, v in self.list.items() :
             v.slot_dir = env.slots_path + str(v.slot_num)
             os.mkdir(v.slot_dir)
@@ -812,9 +1003,9 @@ class SLOTS_LIST:
                 shutil.copy2(env.init_data_template_file, v.slot_dir + "/init_data.xml")
             if(num_gpu_slots > 0):
                 v.platform = "GPU"
-                v.device = gpu_device_id
+                v.device = env.gpu_devices[gpu_device_index]
                 num_gpu_slots -= 1
-                gpu_device_id += 1
+                gpu_device_index += 1
             else:
                 v.platform = "CPU"
         return(True)
@@ -935,7 +1126,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--about", help="README", action="store_true", default=False)
     parser.add_argument("-y", "--yes", help="Don't ask confirmation before running jobs", action="store_true", default=False)
-    parser.add_argument("-d", "--debug", help="Debug output", action="store_true", default=False)
+    parser.add_argument("--cfg_file", help="Specify name alternative CFG file", type=str, default="BenchCFG")
     parser.add_argument("--run_name", help="Specify name of this run", type=str, default="")
     parser.add_argument("--boinc_home", help="Specify path for BOINC", type=str, default=mb_const.boinc_home)
     parser.add_argument("--noBS", help="Do not suspend BOINC", action="store_true", default=False)
@@ -944,15 +1135,16 @@ def main():
     parser.add_argument("--num_repetitions", help="Specify number of times to run benchmark", type=int, default=1)
     parser.add_argument("--max_threads", help="Specify max number of threads to load", type=int, default=0)
     parser.add_argument("--max_gpus", help="Specify max number of GPUs to load", type=int, default=0)
-    parser.add_argument("--ref_signals", help="Use standard signal WUs instead of Test WUs",
+    parser.add_argument("--gpu_devices", help="Specify which GPUs to use: 0,1,2", type=str, default="")
+    parser.add_argument("--std_signals", help="Use standard signal WUs instead of Test WUs",
                         action="store_true", default=False)
     parser.add_argument("--admin_mkdirs", help="Make required directories", action="store_true", default=False)
+    parser.add_argument("-d", "--debug", help="Debug output", action="store_true", default=False)
     args = parser.parse_args()
     mb_const.boinc_home = args.boinc_home
 
-    # TODO need to make a lock_file in the working directory to prevent
-    # more than 1 instance of benchMT using the same directories
 
+    if args.debug == True :  mb_const.DEBUG = True
     # Set and verify working environment
     if args.about == True :  
         print(__doc__ )
@@ -965,43 +1157,122 @@ def main():
         print("Status: ", __status__)
         exit(0)
     env = BENCH_ENV()
-    if args.debug == True :  mb_const.DEBUG = True
-    if len(args.run_name) > 0 :
-        if args.run_name.isprintable():
-            env.run_name = args.run_name.replace(' ','')
-            env.run_name = env.run_name.replace('/','')
-            env.run_name = env.run_name.replace('\\','')
-
     if(env.set_env() == False): 
         if args.makedirs == True :
             env.makedirs()
             exit(0)
         print("Error in environment.  Exiting...")
         sys.exit(-1)
-    if args.ref_signals == True :  env.mode_ref_signals = True
-    env.mode_display_compact = args.display_compact
-    env.mode_display_slots = args.display_slots
-    if args.num_repetitions > 0 : 
-        env.repetitions = args.num_repetitions
-    else:
-        print("Invalid number of repetitions specified ["+ str(args.num_repetitions) + "].  Ignoring...")
 
-    if args.max_threads > 0 and args.max_threads < env.total_cpu_threads :
-        env.allocated_cthreads = args.max_threads
-    else:
-        env.allocated_cthreads = env.total_cpu_threads
-    if args.max_gpus > 0 and args.max_gpus < env.total_gpu_threads :
-        env.allocated_gthreads = args.max_gpus
-    else:
-        env.allocated_gthreads = env.total_gpu_threads
-
-    env.print()
+    if len(args.cfg_file) > 0 :
+        if args.cfg_file != "BenchCFG" :
+            test_command_line_file = env.current_dir + "/" + args.cfg_file
+            if(os.path.isfile(test_command_line_file) == True): 
+                env.command_line_file = test_command_line_file
+            else:
+                print("Specified BenchCFG [", test_command_line_file,"] doesn't exist")
+                sys.exit(-1)
 
     # Read BenchCFG file and create list of provided apps and aguments.
     # Determine of the apps are GPU or CPU by checking which APP_DIR they are located in
+    cfg_modes = CFG_MODES()
     applist = JOB_LIST()
-    applist.read_benchcfg(env)
+    applist.read_benchcfg(env, cfg_modes)
     if mb_const.DEBUG == True: applist.print(title="Initial app list")
+
+    # set modes with CFG file mode statements
+    specified_max_threads = -1
+    specified_max_gpus = -1
+    if cfg_modes.mode_value("yes") == True :  args.yes = True
+    if cfg_modes.mode_value("run_name") != None :
+        if len(cfg_modes.mode_value("run_name")) > 0 :
+            if cfg_modes.mode_value("run_name").isprintable():
+                env.run_name = cfg_modes.mode_value("run_name").replace(' ','')
+                env.run_name = env.run_name.replace('/','')
+                env.run_name = env.run_name.replace('\\','')
+    if cfg_modes.mode_value("std_signals") == True :  env.mode_std_signals = True
+    if cfg_modes.mode_value("display_compact") == True :  env.mode_display_compact = True
+    if cfg_modes.mode_value("display_slots") == True :  env.mode_display_slots = True
+    # read user specified GPU device list
+    cfg_gpu_devices = []
+    if cfg_modes.mode_value("gpu_devices") != None:
+        if re.fullmatch('([0-9],)*([0-9])+', cfg_modes.mode_value("gpu_devices")):
+            gdev_items = cfg_modes.mode_value("gpu_devices").split(',')
+            cfg_gpu_devices = []
+            for gi in gdev_items:
+                cfg_gpu_devices[len(cfg_gpu_devices):] = [int(gi)]
+            if max(cfg_gpu_devices) > env.total_gpu_threads - 1:
+                print("Invalid gpu_device mode, max of ", str(cfg_gpu_devices),
+                        "is > number of GPUs [", env.total_gpu_threads, " - 1 ]")
+                cfg_gpu_devices = []
+            else:
+                print("CFG gpu_devices: ", str(cfg_gpu_devices))
+        else:
+            print("Invalid CFG gpu_devices arg: [", cfg_modes.mode_value("gpu_devices"), "]")
+    if cfg_modes.mode_value("num_repetitions") != None : 
+        if cfg_modes.mode_value("num_repetitions") > 0 : 
+            env.repetitions = cfg_modes.mode_value("num_repetitions")
+        else:
+            print("CFG: Invalid number of repetitions specified ["+ str(cfg_modes.mode_value("num_repetitions")) + "].  Ignoring...")
+    if cfg_modes.mode_value("max_threads") != None : 
+        if cfg_modes.mode_value("max_threads") > 0 : 
+            specified_max_threads = cfg_modes.mode_value("max_threads")
+    if cfg_modes.mode_value("max_gpus") != None : 
+        if cfg_modes.mode_value("max_gpus") > 0 : 
+            specified_max_gpus = cfg_modes.mode_value("max_gpus")
+
+    # overwrite modes with command line arguments
+    if len(args.run_name) > 0 :
+        if args.run_name.isprintable():
+            env.run_name = args.run_name.replace(' ','')
+            env.run_name = env.run_name.replace('/','')
+            env.run_name = env.run_name.replace('\\','')
+    if args.std_signals == True :  env.mode_std_signals = True
+    if args.display_compact == True :  env.mode_display_compact = True
+    if args.display_slots == True :  env.mode_display_slots = True
+    # read user specified GPU device list
+    specified_gpu_devices = []
+    if len(args.gpu_devices) > 0:
+        if re.fullmatch('([0-9],)*([0-9])+', args.gpu_devices):
+            gdev_items = args.gpu_devices.split(',')
+            specified_gpu_devices = []
+            for gi in gdev_items:
+                specified_gpu_devices[len(specified_gpu_devices):] = [int(gi)]
+            if max(specified_gpu_devices) > env.total_gpu_threads - 1:
+                print("Invalid gpu_device specified, max of ", str(specified_gpu_devices),
+                        "is > number of GPUs [", env.total_gpu_threads, " - 1 ]")
+                specified_gpu_devices = []
+            else:
+                print("Specified gpu_devices: ", str(specified_gpu_devices))
+        else:
+            print("Invalid gpu_devices arg: [", args.gpu_devices, "]")
+    if args.num_repetitions > 1 : 
+        env.repetitions = args.num_repetitions
+
+    if args.max_threads > 0: specified_max_threads = args.max_threads
+    if specified_max_threads > 0 and specified_max_threads < env.total_cpu_threads :
+        env.allocated_cthreads = specified_max_threads
+    else:
+        env.allocated_cthreads = env.total_cpu_threads
+
+    if args.max_gpus > 0: specified_max_gpus = args.max_gpus
+    if specified_max_gpus > 0 and specified_max_gpus < env.total_gpu_threads :
+        env.allocated_gthreads = specified_max_gpus
+    else:
+        env.allocated_gthreads = env.total_gpu_threads
+
+    if len(specified_gpu_devices) == 0:
+        if len(cfg_gpu_devices) > 0:
+            specified_gpu_devices = cfg_gpu_devices
+    if len(specified_gpu_devices) > 0:
+        if len(specified_gpu_devices) == env.allocated_gthreads:
+            env.gpu_devices = specified_gpu_devices
+            print("Set specified gpu_devices: ", str(specified_gpu_devices))
+        else:
+            print("Mismatch with allocated GPUS, specified gpu_devices NOT set: [", args.gpu_devices, "]")
+            exit(-1)
+
+    env.print()
 
     # Create a list of WUs to be processed
     wulist = JOB_LIST()
@@ -1037,7 +1308,7 @@ def main():
     num_gpu_jobs = joblist.num_gpu_jobs()
     if num_cpu_jobs > 0 and num_gpu_jobs > 0 and env.allocated_cthreads < 2:
         print("ERROR: Insufficient threads available for specified jobs. Exiting...")
-        exit(-1)
+        sys.exit(-1)
     if num_gpu_jobs > env.allocated_gthreads:
         num_gpu_slots = env.allocated_gthreads
     else:
@@ -1049,7 +1320,7 @@ def main():
         num_gpu_slots = env.allocated_cthreads 
     if num_gpu_slots < 1 and num_gpu_jobs > 0:
         print("ERROR: Insufficient threads available for specified jobs. Exiting...")
-        exit(-1)
+        sys.exit(-1)
 
     if num_cpu_jobs + num_gpu_slots < env.allocated_cthreads :
         env.allocated_cthreads = num_cpu_jobs + num_gpu_slots
@@ -1061,7 +1332,7 @@ def main():
     slots = SLOTS_LIST()
     slots.create_slot_list(env.allocated_cthreads)
     if slots.initialize_slots(env, num_gpu_slots) == False :
-        exit(-1)
+        sys.exit(-1)
     slots.print(title="List of Initialized Slots")
 
     # Execute the joblist
@@ -1072,6 +1343,11 @@ def main():
     print("Pending reference jobs: ", num_pending_pjobs["REF"])
     if args.yes == False :
         if input("Execute listed jobs? [y/N]").lower() != 'y': exit(1)
+    # check if there is already and instance running in this directory
+    if env.is_bench_conflict() :
+        print("Another instance of benchMT is running in this directory, exiting...")
+        exit(-1)
+
     if mb_const.DEBUG == False: os.system('clear')
     if env.mode_display_slots == True:
         slots.print_activity(joblist, env.mode_display_compact)
@@ -1079,6 +1355,11 @@ def main():
         joblist.print(env.mode_display_compact)
 
     #Make testData subdirectory for this run and open summary file for writing
+    # update summary_path in case the run name was set
+    env.summary_path = env.testdata_path + "/" + env.hostname + "_benchMT_" + env.run_name + "_" + env.time_now_short
+    env.summary_file = env.summary_path + "/" + env.hostname + ".testlog." + env.run_name + "_" + env.time_now_short + ".txt"
+    env.psv_file = env.summary_path + "/" + env.hostname + ".timelog." + env.run_name + "_" + env.time_now_short + ".psv"
+
     os.mkdir(env.summary_path)
     if(os.path.isdir(env.summary_path) == False):
         print("Failed to make benchMT testData subdir [", env.summary_path,"]")
@@ -1087,7 +1368,6 @@ def main():
     env.psv_file_ptr = open(env.psv_file, 'w')
     print(__program_name__ + " " +  __version__ +  " \u2015 SETI MB Benchmarking Utility \u2015 Linux edition\n",
             file=env.sum_file_ptr)
-    # TODO check if there is already and instance running in this directory
     if args.noBS == False:
         print("Suspending BOINC\n", file=env.sum_file_ptr)
         env.suspend_boinc()
@@ -1136,7 +1416,6 @@ def main():
                     else:
                         cmd_str_list = [env.ref_app_path + slots.list[slot_num].job.app_name , " " + slots.list[slot_num].job.app_args]
                     if mb_const.DEBUG == True: print(cmd_str_list)
-
 
 
                     #cd to slot dir and execute app with args
@@ -1221,6 +1500,10 @@ def main():
     # close files 
     env.sum_file_ptr.close()
     env.psv_file_ptr.close()
+
+    # Remove lockfile
+    if(os.path.isfile(env.lockfile) == True): 
+        os.remove(env.lockfile)
 
 
 if __name__ == "__main__":

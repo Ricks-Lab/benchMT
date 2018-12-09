@@ -1,25 +1,25 @@
 shmget in attach_shmem: Invalid argument
-18:44:07 (55031): Can't set up shared mem: -1. Will run in standalone mode.
+13:10:42 (101437): Can't set up shared mem: -1. Will run in standalone mode.
 setiathome_v8 8.00 Revision: 3290 g++ (GCC) 4.4.7 20120313 (Red Hat 4.4.7-4)
 libboinc: BOINC 7.7.0
 
 Work Unit Info:
 ...............
-WU true angle range is :  0.010899
+WU true angle range is :  0.006654
 Optimal function choices:
 --------------------------------------------------------
                             name   timing   error
 --------------------------------------------------------
                 v_BaseLineSmooth (no other)
     v_vGetPowerSpectrumUnrolled2 0.000034 0.00000 
-                 avx_ChirpData_d 0.002838 0.00000 
-                  AK SSE folding 0.000532 0.00000 
+                 avx_ChirpData_d 0.002794 0.00000 
+                  AK SSE folding 0.000539 0.00000 
 
-Flopcounter: 23944820171561.273438
+Flopcounter: 26027631425407.781250
 
 Spike count:    0
-Autocorr count: 0
-Pulse count:    6
-Triplet count:  0
+Autocorr count: 1
+Pulse count:    4
+Triplet count:  1
 Gaussian count: 0
-19:36:29 (55031): called boinc_finish(0)
+14:06:17 (101437): called boinc_finish(0)
