@@ -36,6 +36,7 @@
 * Fixed issue where program would exit if Reference file didn't exist.  Now an error message is printed and no comparison results are printed to summary files.
 * Added commmand line option *--no_ref* which will not create reference results when selected.  This is useful for characterizing potential reference WUs.
 * Added color to status display.
+* Modified so that status display will not show skipped jobs (Reference data already exists).
 * Updated reference WUs in the *WU_test/safe* directory.  Still need a WU with a Gaussian signal.
 
 ## New in Previous Release  -  V1.1.0
