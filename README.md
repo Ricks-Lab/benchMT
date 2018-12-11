@@ -34,8 +34,9 @@
 ## New in this Release  -  V1.1.1
 * Fixed a problem with the when lock_file was created and checked.  Now placed before slot initialization.
 * Fixed issue where program would exit if Reference file didn't exist.  Now an error message is printed and no comparison results are printed to summary files.
-* Added commmand line option *--no_ref* which will not create reference results when selected.  This is useful for charactizing potential reference WUs.
-* Added color to status display
+* Added commmand line option *--no_ref* which will not create reference results when selected.  This is useful for characterizing potential reference WUs.
+* Added color to status display.
+* Updated reference WUs in the *WU_test/safe* directory.  Still need a WU with a Gaussian signal.
 
 ## New in Previous Release  -  V1.1.0
 * Command line options can now be specified in mode lines of the BenchCFG file.  Options given on the command line will override modes specified in the CFG file.
@@ -44,7 +45,7 @@
 * Remove app *-device N* arg if specified, since -device is automatically added based on slot assignment.
 * Added *--gpu_devices x,y* command line option to specify which GPU devices the user would like to include in the benchmark run.
 * Added a lock_file in the working directory to prevent a second occurrence of benchMT from using the same directory.
-* Updated the 15 reference WUs in the *WU_test/safe* directory.
+* Updated reference WUs in the *WU_test/safe* directory.
 * Changed *--ref_signals* option to *--std_signals* for clarity.
 
 ## Development Plans and Known Limitations
