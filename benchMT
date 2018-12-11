@@ -52,9 +52,9 @@ __copyright__ = "Copyright (C) 2018 RueiKe"
 __credits__ = "Testing: Keith Myers"
 __license__ = "GNU General Public License"
 __program_name__ = "benchMT"
-__version__ = "v1.1.0"
+__version__ = "v1.1.1"
 __maintainer__ = "RueiKe"
-__status__ = "CFG Features under development"
+__status__ = "Added color coded states"
 
 import argparse
 import re
@@ -179,7 +179,6 @@ class BENCH_ENV:
         self.boinc_home = ""
         self.boinccmd = ""
         self.wucmpcmd = ""
-        self.mode_std_signals = False
         self.repetitions = 1
         self.summary_path = ""
         self.run_name = ""
@@ -189,8 +188,11 @@ class BENCH_ENV:
         self.psv_file_ptr = None
         self.workdir_path = ""
         self.lockfile = ""
+        self.mode_std_signals = False
         self.mode_display_slots = False
         self.mode_display_compact = False
+        self.mode_no_ref = False
+
 
     def set_env(self):
         """ Setup the working environment to run benchmarks
@@ -672,12 +674,26 @@ class JOB_LIST:
                 "─".ljust(8,'─'),  "─".ljust(8,'─'), "─".ljust(11,'─'),
                 "─".ljust(8,'─') + "┐", file=fileptr, sep="┬")
 
-        print("│Job#".ljust(5,' '), "Slot".ljust(4,' '), "xPU".ljust(3,' '), "app_name".ljust(60,' '),
-                "  start".ljust(8,' '), " finish".ljust(8,' '), "tot_time".ljust(11,' '),
-                " state".ljust(8,' ') + "│", file=fileptr, sep="│")
-
-        print("│".ljust(5,' '), " ".ljust(4,' '), " ".ljust(3,' '), "app_args".ljust(60,' '),
-                "wu_name".ljust(38,' ') + "│", file=fileptr, sep="│")
+        if fileptr == sys.stdout:
+            print("│" + '\x1b[1;36m'+ "Job#".ljust(4,' ') +'\x1b[0m',
+                    '\x1b[1;36m'+ "Slot".ljust(4,' ') +'\x1b[0m',
+                    '\x1b[1;36m'+ "xPU".ljust(3,' ') +'\x1b[0m',
+                    '\x1b[1;36m'+ "app_name".ljust(60,' ') +'\x1b[0m',
+                    '\x1b[1;36m'+ "  start".ljust(8,' ') +'\x1b[0m',
+                    '\x1b[1;36m'+ " finish".ljust(8,' ') +'\x1b[0m',
+                    '\x1b[1;36m'+ "tot_time".ljust(11,' ') +'\x1b[0m',
+                    '\x1b[1;36m'+ " state".ljust(8,' ') +'\x1b[0m' + "│", file=fileptr, sep="│")
+            print("│"+ '\x1b[1;36m'+ " ".ljust(4,' ') +'\x1b[0m',
+                    '\x1b[1;36m'+ " ".ljust(4,' ') +'\x1b[0m',
+                    '\x1b[1;36m'+ " ".ljust(3,' ') +'\x1b[0m',
+                    '\x1b[1;36m'+ "app_args".ljust(60,' ') +'\x1b[0m',
+                    '\x1b[1;36m'+ "wu_name".ljust(38,' ') +'\x1b[0m' + "│", file=fileptr, sep="│")
+        else:
+            print("│Job#".ljust(5,' '), "Slot".ljust(4,' '), "xPU".ljust(3,' '), "app_name".ljust(60,' '),
+                    "  start".ljust(8,' '), " finish".ljust(8,' '), "tot_time".ljust(11,' '),
+                    " state".ljust(8,' ') + "│", file=fileptr, sep="│")
+            print("│".ljust(5,' '), " ".ljust(4,' '), " ".ljust(3,' '), "app_args".ljust(60,' '),
+                    "wu_name".ljust(38,' ') + "│", file=fileptr, sep="│")
 
         for k, v in self.list.items() :
             if v.slot == -1:
@@ -689,8 +705,10 @@ class JOB_LIST:
                 start_time_str = v.start_time.strftime('%H:%M:%S')
             elif v.start_time == "NA":
                 start_time_str = "SKIPPED"
+                if compact_flag == True: continue
             else :
                 start_time_str = "  NA  "
+                if compact_flag == True: continue
 
             if v.state == "COMPLETE" and v.start_time != "NA" :
                 complete_time_str = v.complete_time.strftime('%H:%M:%S')
@@ -698,17 +716,36 @@ class JOB_LIST:
             elif v.start_time == "NA" :
                 complete_time_str = "SKIPPED"
                 elapsed_time = "SKIPPED"
+                if compact_flag == True: continue
             else :
                 complete_time_str = "  NA  "
                 elapsed_time = "  NA  "
+                if compact_flag == True: continue
+
+            #if printing to stdout, use state colors
+            if fileptr == sys.stdout:
+                if v.state == "ACTIVE":
+                    #Blue
+                    state_str = '\x1b[1;37;44m' + v.state.ljust(8,' ')[:8] + '\x1b[0m'
+                elif v.state == "PENDING":
+                    #Yellow
+                    state_str = '\x1b[1;30;43m' + v.state.ljust(8,' ')[:8] + '\x1b[0m'
+                elif v.state == "COMPLETE":
+                    #Green
+                    state_str = '\x1b[1;30;42m' + v.state.ljust(8,' ')[:8] + '\x1b[0m'
+            else:
+                state_str = v.state.ljust(8,' ')[:8]
 
             if compact_flag == False:
                 print("├─".ljust(5,'─'), "─".ljust(4,'─'), "─".ljust(3,'─'), "─".ljust(60,'─'),
                     "─".ljust(8,'─') +"┬"+ "─".ljust(8,'─') +"┬"+ "─".ljust(11,'─') +"┬"+ "─".ljust(8,'─') + "┤",
                     file=fileptr, sep="┼")
+            #print("│"+str(i).ljust(4,' '), slot_str.ljust(4,' '), v.platform.ljust(3,' ')[:3], v.app_name.ljust(60,' ')[:60],
+                    #start_time_str.ljust(8,' '), complete_time_str.ljust(8,' '), str(elapsed_time).ljust(11,' ')[:11],
+                    #v.state.ljust(8,' ')[:8]  + "│", file=fileptr, sep="│")
             print("│"+str(i).ljust(4,' '), slot_str.ljust(4,' '), v.platform.ljust(3,' ')[:3], v.app_name.ljust(60,' ')[:60],
                     start_time_str.ljust(8,' '), complete_time_str.ljust(8,' '), str(elapsed_time).ljust(11,' ')[:11],
-                    v.state.ljust(8,' ')[:8] + "│", file=fileptr, sep="│")
+                    state_str  + "│", file=fileptr, sep="│")
             print("│"+" ".ljust(4,' '), " ".ljust(4,' '), " ".ljust(3,' ')[:3], v.app_args.ljust(60,' ')[:60],
                     v.wu_name.ljust(38,' ')[:38] + "│", file=fileptr, sep="│")
             i += 1
@@ -849,90 +886,98 @@ class JOB_LIST:
                             v.cnt_triplet = 0
                             v.cnt_gaussian = 0
 
-                            resfptr = open(cur_result_file, 'r')
-                            for line in resfptr:
-                                linestr = line.strip()
-                                if len(linestr) == 0 : continue
-                                if linestr[0] == '#': continue
-                                if len(linestr) <2 : continue
-                                #cmd_str = 'cat ' + cur_result_file + ' 2>/dev/null | grep true_angle_range'
-                                #cmd = subprocess.Popen(cmd_str, shell=True, stdout=subprocess.PIPE)
-                                #for line in cmd.stdout:
-                                #linestr = line.decode("utf-8").strip()
-                                if v.angle_range == 0:
-                                    searchObj = re.search('true_angle_range', linestr)
+                            if(os.path.isfile(cur_result_file) == True): 
+                                resfptr = open(cur_result_file, 'r')
+                                for line in resfptr:
+                                    linestr = line.strip()
+                                    if len(linestr) == 0 : continue
+                                    if linestr[0] == '#': continue
+                                    if len(linestr) <2 : continue
+                                    if v.angle_range == 0:
+                                        searchObj = re.search('true_angle_range', linestr)
+                                        if(searchObj != None):
+                                            lineItem = linestr.split('true_angle_range')
+                                            ar_str = re.sub(r'[^\d.]', '', lineItem[1])
+                                            print("Angle Range: ["+ar_str + "]")
+                                            v.angle_range = float(ar_str)
+                                            continue
+                                    searchObj = re.search(r'<spike>', linestr)
                                     if(searchObj != None):
-                                        lineItem = linestr.split('true_angle_range')
-                                        ar_str = re.sub(r'[^\d.]', '', lineItem[1])
-                                        print("Angle Range: ["+ar_str + "]")
-                                        v.angle_range = float(ar_str)
+                                        v.cnt_spike += 1
                                         continue
-                                searchObj = re.search(r'<spike>', linestr)
-                                if(searchObj != None):
-                                    v.cnt_spike += 1
-                                    continue
-                                searchObj = re.search(r'<autocorr>', linestr)
-                                if(searchObj != None):
-                                    v.cnt_autocorr += 1
-                                    continue
-                                searchObj = re.search(r'<pulse>', linestr)
-                                if(searchObj != None):
-                                    v.cnt_pulse += 1
-                                    continue
-                                searchObj = re.search(r'<triplet>', linestr)
-                                if(searchObj != None):
-                                    v.cnt_triplet += 1
-                                    continue
-                                searchObj = re.search(r'<gaussian>', linestr)
-                                if(searchObj != None):
-                                    v.cnt_gaussian += 1
-                                    continue
-                            resfptr.close()
+                                    searchObj = re.search(r'<autocorr>', linestr)
+                                    if(searchObj != None):
+                                        v.cnt_autocorr += 1
+                                        continue
+                                    searchObj = re.search(r'<pulse>', linestr)
+                                    if(searchObj != None):
+                                        v.cnt_pulse += 1
+                                        continue
+                                    searchObj = re.search(r'<triplet>', linestr)
+                                    if(searchObj != None):
+                                        v.cnt_triplet += 1
+                                        continue
+                                    searchObj = re.search(r'<gaussian>', linestr)
+                                    if(searchObj != None):
+                                        v.cnt_gaussian += 1
+                                        continue
+                                resfptr.close()
 
-                            # write to run log
-                            print("=".ljust(80, "="), file=env.sum_file_ptr)
-                            print("App Name: ", v.app_name, file=env.sum_file_ptr)
-                            print("App Args: ", v.app_args, file=env.sum_file_ptr)
-                            print("WU Name:  ", v.wu_name, file=env.sum_file_ptr)
-                            print("WU Angle Range: ", v.angle_range, file=env.sum_file_ptr)
-                            print("Spike count:    ", v.cnt_spike, file=env.sum_file_ptr)
-                            print("Autocorr count: ", v.cnt_autocorr, file=env.sum_file_ptr)
-                            print("Pulse count:    ", v.cnt_pulse, file=env.sum_file_ptr)
-                            print("Triplet count:  ", v.cnt_triplet, file=env.sum_file_ptr)
-                            print("Gaussian count: ", v.cnt_gaussian, file=env.sum_file_ptr)
-                            print("Results:  ", cur_result_file, file=env.sum_file_ptr)
-                            print("REF Name: ", ref_result_file, file=env.sum_file_ptr)
-                            print("", file=env.sum_file_ptr)
+                                # write to run log
+                                print("=".ljust(80, "="), file=env.sum_file_ptr)
+                                print("App Name: ", v.app_name, file=env.sum_file_ptr)
+                                print("App Args: ", v.app_args, file=env.sum_file_ptr)
+                                print("WU Name:  ", v.wu_name, file=env.sum_file_ptr)
+                                print("WU Angle Range: ", v.angle_range, file=env.sum_file_ptr)
+                                print("Spike count:    ", v.cnt_spike, file=env.sum_file_ptr)
+                                print("Autocorr count: ", v.cnt_autocorr, file=env.sum_file_ptr)
+                                print("Pulse count:    ", v.cnt_pulse, file=env.sum_file_ptr)
+                                print("Triplet count:  ", v.cnt_triplet, file=env.sum_file_ptr)
+                                print("Gaussian count: ", v.cnt_gaussian, file=env.sum_file_ptr)
+                                print("Results:  ", cur_result_file, file=env.sum_file_ptr)
+                                print("REF Name: ", ref_result_file, file=env.sum_file_ptr)
+                                print("", file=env.sum_file_ptr)
     
-                            # compare results to reference
-                            v.similarity = "Unknown"
-                            v.q_value = "Unknown"
-                            command_str = env.wucmpcmd + " " + cur_result_file + " " + ref_result_file + " 2>/dev/null"
-                            if mb_const.DEBUG == True: print("Results compare command: ", command_str)
-                            cmd = subprocess.Popen(command_str, shell=True, stdout=subprocess.PIPE)
-                            for line in cmd.stdout:
-                                linestr = line.decode("utf-8").strip()
-                                print(linestr, file=env.sum_file_ptr)
-                                if mb_const.DEBUG == True: print("Results compare output: ", linestr)
-                                searchObj = re.search('Result', linestr)
-                                if(searchObj != None):
-                                    line_str_items = linestr.split(':')
-                                    if len(line_str_items) >= 2 :
-                                        result_str = line_str_items[1].strip()
-                                        result_str_items = result_str.split(',')
-                                        v.similarity = result_str_items[0].strip()
-                                        v.similarity = v.similarity.replace('.','')
-                                        if len(result_str_items) >= 2 :
-                                            q_str_items = result_str_items[1].split('=')
-                                            v.q_value = q_str_items[1].strip()
-                                        else : 
-                                            v.q_value = "0.0%"
-                                    else :
-                                        v.similarity = "ERROR"
-                                        v.q_value = "ERROR"
-                            cmd.stdout.close()
-                            print("=".ljust(80, "="), file=env.sum_file_ptr)
-                            print("", file=env.sum_file_ptr)
+                                # compare results to reference
+                                v.similarity = "Unknown"
+                                v.q_value = "Unknown"
+                                command_str = env.wucmpcmd + " " + cur_result_file + " " + ref_result_file + " 2>/dev/null"
+                                if mb_const.DEBUG == True: print("Results compare command: ", command_str)
+                                cmd = subprocess.Popen(command_str, shell=True, stdout=subprocess.PIPE)
+                                for line in cmd.stdout:
+                                    linestr = line.decode("utf-8").strip()
+                                    print(linestr, file=env.sum_file_ptr)
+                                    if mb_const.DEBUG == True: print("Results compare output: ", linestr)
+                                    searchObj = re.search('Result', linestr)
+                                    if(searchObj != None):
+                                        line_str_items = linestr.split(':')
+                                        if len(line_str_items) >= 2 :
+                                            result_str = line_str_items[1].strip()
+                                            result_str_items = result_str.split(',')
+                                            v.similarity = result_str_items[0].strip()
+                                            v.similarity = v.similarity.replace('.','')
+                                            if len(result_str_items) >= 2 :
+                                                q_str_items = result_str_items[1].split('=')
+                                                v.q_value = q_str_items[1].strip()
+                                            else : 
+                                                v.q_value = "0.0%"
+                                        else :
+                                            v.similarity = "ERROR"
+                                            v.q_value = "ERROR"
+                                cmd.stdout.close()
+                                print("=".ljust(80, "="), file=env.sum_file_ptr)
+                                print("", file=env.sum_file_ptr)
+                            else:
+                                print("ERROR: can not open results file: ", cur_result_file)
+                                # write to run log
+                                print("=".ljust(80, "="), file=env.sum_file_ptr)
+                                print("ERROR: can not open results file: ", cur_result_file, file=env.sum_file_ptr)
+                                print("App Name: ", v.app_name, file=env.sum_file_ptr)
+                                print("App Args: ", v.app_args, file=env.sum_file_ptr)
+                                print("WU Name:  ", v.wu_name, file=env.sum_file_ptr)
+                                print("Results:  ", cur_result_file, file=env.sum_file_ptr)
+                                print("REF Name: ", ref_result_file, file=env.sum_file_ptr)
+                                print("", file=env.sum_file_ptr)
 
                         else : #v.platform == REF
                             # Move results file to testData or testData/REF_RESULTS
@@ -943,6 +988,7 @@ class JOB_LIST:
                                 os.remove(v.slot_dir + "/result.sah")
                                 if mb_const.DEBUG == True: print("Copy2: " + v.slot_dir + "/results.sah", dest_file)
                             else:
+                                print("ERROR: can not open result file: ", v.slot_dir + "/result.sah")
                                 v.error = v.error + "[No result.sah file]"
                             dest_file = env.ref_results_path + "/ref-stderr." + ref_app_name + "." + v.wu_name + ".txt"
                             if(os.path.isfile(v.slot_dir + "/stderr.txt") == True): 
@@ -950,6 +996,7 @@ class JOB_LIST:
                                 os.remove(v.slot_dir + "/stderr.txt")
                                 if mb_const.DEBUG == True: print("Copy2: " + v.slot_dir + "/stderr.txt", dest_file)
                             else:
+                                print("ERROR: can not open stderr file: ", v.slot_dir + "/stderr.txt")
                                 v.error = v.error + "[No stderr.txt file]"
 
                         # Clean slot
@@ -1090,7 +1137,16 @@ class SLOTS_LIST:
         print("┌─".ljust(5,'─'), "─".ljust(3,'─'), "─".ljust(3,'─'),  "─".ljust(40,'─'), "─".ljust(30,'─'),
                 "─".ljust(10,'─'),  "─".ljust(10,'─') + "┐", file=fileptr, sep="┬")
 
-        print("│Slot".ljust(5,' '), "xPU".ljust(3,' '), "DEV".ljust(3,' '), "app_name".ljust(40,' '), "app_args".ljust(30,' '),
+        if fileptr == sys.stdout:
+            print("│"+'\x1b[1;36m'+"Slot".ljust(4,' ')+'\x1b[0m',
+                    '\x1b[1;36m'+"xPU".ljust(3,' ')+'\x1b[0m',
+                    '\x1b[1;36m'+"DEV".ljust(3,' ')+'\x1b[0m',
+                    '\x1b[1;36m'+"app_name".ljust(40,' ')+'\x1b[0m',
+                    '\x1b[1;36m'+"app_args".ljust(30,' ')+'\x1b[0m',
+                    '\x1b[1;36m'+"wu_name".ljust(10,' ')+'\x1b[0m',
+                    '\x1b[1;36m'+" state".ljust(10,' ')+'\x1b[0m' + "│", file=fileptr, sep="│")
+        else:
+            print("│Slot".ljust(5,' '), "xPU".ljust(3,' '), "DEV".ljust(3,' '), "app_name".ljust(40,' '), "app_args".ljust(30,' '),
                 "wu_name".ljust(10,' '), " state".ljust(10,' ') + "│", file=fileptr, sep="│")
 
         for k, v in self.list.items() :
@@ -1111,12 +1167,25 @@ class SLOTS_LIST:
                 app_arg_str = joblist.list[v.job.uuid].app_args
                 wu_name_str = joblist.list[v.job.uuid].wu_name
 
+            #if printing to stdout, use state colors
+            if fileptr == sys.stdout:
+                if v.state == "ACTIVE":
+                    #Blue
+                    state_str = '\x1b[1;37;44m' +"  "+ v.state.ljust(10,' ')[:10] + '\x1b[0m'
+                elif v.state == "EMPTY":
+                    #Yellow
+                    state_str = '\x1b[1;30;43m' + "  "+v.state.ljust(10,' ')[:10] + '\x1b[0m'
+            else:
+                state_str = v.state.ljust(10,' ')[:10]
+
             if compact_flag == False :
                 print("├─".ljust(5,'─'), "─".ljust(3,'─'), "─".ljust(3,'─'), "─".ljust(40,'─'), "─".ljust(30,'─'),
                     "─".ljust(10,'─'), "─".ljust(10,'─') + "┤", file=fileptr, sep="┼")
-            print("│" + slotnum_str.ljust(4,' '), v.platform.ljust(3,' ')[:3], slotnum_str.ljust(3,' '), app_str.ljust(40,' ')[:40],
-                    app_arg_str.ljust(30,' ')[:30], wu_name_str.ljust(10,' ')[:10], v.state.ljust(10,' ')[:10] +
-                    "│", file=fileptr, sep="│")
+            #print("│" + slotnum_str.ljust(4,' '), v.platform.ljust(3,' ')[:3], slotnum_str.ljust(3,' '), app_str.ljust(40,' ')[:40],
+                    #app_arg_str.ljust(30,' ')[:30], wu_name_str.ljust(10,' ')[:10], v.state.ljust(10,' ')[:10] +
+                    #"│", file=fileptr, sep="│")
+            print("│" + slotnum_str.ljust(4,' '), v.platform.ljust(3,' ')[:3], dev_str.ljust(3,' '), app_str.ljust(40,' ')[:40],
+                    app_arg_str.ljust(30,' ')[:30], wu_name_str.ljust(10,' ')[:10], state_str + "│", file=fileptr, sep="│")
 
         print("└─".ljust(5,'─'), "─".ljust(3,'─'), "─".ljust(3,'─'),  "─".ljust(40,'─'), "─".ljust(30,'─'),
                 "─".ljust(10,'─'), "─".ljust(10,'─') + "┘", file=fileptr, sep="┴")
@@ -1136,8 +1205,8 @@ def main():
     parser.add_argument("--max_threads", help="Specify max number of threads to load", type=int, default=0)
     parser.add_argument("--max_gpus", help="Specify max number of GPUs to load", type=int, default=0)
     parser.add_argument("--gpu_devices", help="Specify which GPUs to use: 0,1,2", type=str, default="")
-    parser.add_argument("--std_signals", help="Use standard signal WUs instead of Test WUs",
-                        action="store_true", default=False)
+    parser.add_argument("--std_signals", help="Use standard signal WUs instead of Test WUs", action="store_true", default=False)
+    parser.add_argument("--no_ref", help="Do not generate reference results", action="store_true", default=False)
     parser.add_argument("--admin_mkdirs", help="Make required directories", action="store_true", default=False)
     parser.add_argument("-d", "--debug", help="Debug output", action="store_true", default=False)
     args = parser.parse_args()
@@ -1279,28 +1348,29 @@ def main():
     wulist.read_wu_list(env)
     if mb_const.DEBUG == True: wulist.print(title="Initial WU list")
 
-    # Create a reference job list
-    reflist = JOB_LIST()
-    ref_app = BENCH_JOB(uuid4().hex)
-    #Determine ref_app name - only 1 app in REF_APP dir is used
-    cwd = os.getcwd()
-    os.chdir(env.ref_app_path)
-    ref_app.app_name = glob.glob("ref-cpu.*")[0]
-    if(os.path.isfile(ref_app.app_name) == False): 
-        print("Error: can not access reference app: [" + ref_app.app_name + "]")
-        valid_ref = False
-    else:
-        valid_ref = True
-        ref_app.app_args = " --nographics"
-        reflist.create_ref_list(ref_app, wulist, env)
-        reflist.print(title="Reference Job List")
-    os.chdir(cwd)
-    reflist.check_ref_results(env)
+    if args.no_ref == False:
+        # Create a reference job list
+        reflist = JOB_LIST()
+        ref_app = BENCH_JOB(uuid4().hex)
+        #Determine ref_app name - only 1 app in REF_APP dir is used
+        cwd = os.getcwd()
+        os.chdir(env.ref_app_path)
+        ref_app.app_name = glob.glob("ref-cpu.*")[0]
+        if(os.path.isfile(ref_app.app_name) == False): 
+            print("Error: can not access reference app: [" + ref_app.app_name + "]")
+            valid_ref = False
+        else:
+            valid_ref = True
+            ref_app.app_args = " --nographics"
+            reflist.create_ref_list(ref_app, wulist, env)
+            reflist.print(title="Reference Job List")
+        os.chdir(cwd)
+        reflist.check_ref_results(env)
 
     # Create a final job list from the applist and wulist and append reflist
     joblist = JOB_LIST()
     joblist.create_job_list(applist, wulist, env)
-    joblist.append_job_list(reflist)
+    if args.no_ref == False: joblist.append_job_list(reflist)
     joblist.print(title="Final Job List")
 
     # Prepare working slots
@@ -1329,6 +1399,10 @@ def main():
     print("For " + str(num_cpu_jobs) + " CPU jobs and " + str(env.allocated_gthreads) +
                 " GPU slots. Allocated Threads reduced to " + str(env.allocated_cthreads))
 
+    # check if there is already and instance running in this directory
+    if env.is_bench_conflict() :
+        print("Another instance of benchMT is running in this directory, exiting...")
+        exit(-1)
     slots = SLOTS_LIST()
     slots.create_slot_list(env.allocated_cthreads)
     if slots.initialize_slots(env, num_gpu_slots) == False :
@@ -1344,9 +1418,11 @@ def main():
     if args.yes == False :
         if input("Execute listed jobs? [y/N]").lower() != 'y': exit(1)
     # check if there is already and instance running in this directory
-    if env.is_bench_conflict() :
-        print("Another instance of benchMT is running in this directory, exiting...")
-        exit(-1)
+    #This check is too late in the flow
+    #if env.is_bench_conflict() :
+        #print("Another instance of benchMT is running in this directory, exiting...")
+        #exit(-1)
+
 
     if mb_const.DEBUG == False: os.system('clear')
     if env.mode_display_slots == True:

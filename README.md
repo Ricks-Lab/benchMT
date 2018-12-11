@@ -31,7 +31,13 @@
  files for each job run. A run name can be specified with the *--run_name* commane line option. This
  name will be included in the name of the testData subdirectory for the current run.
 
-## New in this Release  -  V1.1.0
+## New in this Release  -  V1.1.1
+* Fixed a problem with the when lock_file was created and checked.  Now placed before slot initialization.
+* Fixed issue where program would exit if Reference file didn't exist.  Now an error message is printed and no comparison results are printed to summary files.
+* Added commmand line option *--no_ref* which will not create reference results when selected.  This is useful for charactizing potential reference WUs.
+* Added color to status display
+
+## New in Previous Release  -  V1.1.0
 * Command line options can now be specified in mode lines of the BenchCFG file.  Options given on the command line will override modes specified in the CFG file.
 * An alternative CFG file can now be specified as a command line option.
 * Signal counts and Angle Range are now included in the psv and txt summary files.
