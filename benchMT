@@ -662,7 +662,7 @@ class JOB_LIST:
             else:
                 self.list[nl_value.uuid] = nl_value
 
-    def print(self, compact_flag=False, fileptr=sys.stdout, title=""):
+    def print(self, compact_flag=False, show_skipped=False, fileptr=sys.stdout, title=""):
         i = 0
         #Print is optimized for 112 columns
         num_jobs = self.jobcount_bystatus()
@@ -705,10 +705,9 @@ class JOB_LIST:
                 start_time_str = v.start_time.strftime('%H:%M:%S')
             elif v.start_time == "NA":
                 start_time_str = "SKIPPED"
-                if compact_flag == True: continue
+                if show_skipped == False: continue
             else :
                 start_time_str = "  NA  "
-                if compact_flag == True: continue
 
             if v.state == "COMPLETE" and v.start_time != "NA" :
                 complete_time_str = v.complete_time.strftime('%H:%M:%S')
@@ -716,11 +715,10 @@ class JOB_LIST:
             elif v.start_time == "NA" :
                 complete_time_str = "SKIPPED"
                 elapsed_time = "SKIPPED"
-                if compact_flag == True: continue
+                if show_skipped == False: continue
             else :
                 complete_time_str = "  NA  "
                 elapsed_time = "  NA  "
-                if compact_flag == True: continue
 
             #if printing to stdout, use state colors
             if fileptr == sys.stdout:
@@ -740,9 +738,6 @@ class JOB_LIST:
                 print("├─".ljust(5,'─'), "─".ljust(4,'─'), "─".ljust(3,'─'), "─".ljust(60,'─'),
                     "─".ljust(8,'─') +"┬"+ "─".ljust(8,'─') +"┬"+ "─".ljust(11,'─') +"┬"+ "─".ljust(8,'─') + "┤",
                     file=fileptr, sep="┼")
-            #print("│"+str(i).ljust(4,' '), slot_str.ljust(4,' '), v.platform.ljust(3,' ')[:3], v.app_name.ljust(60,' ')[:60],
-                    #start_time_str.ljust(8,' '), complete_time_str.ljust(8,' '), str(elapsed_time).ljust(11,' ')[:11],
-                    #v.state.ljust(8,' ')[:8]  + "│", file=fileptr, sep="│")
             print("│"+str(i).ljust(4,' '), slot_str.ljust(4,' '), v.platform.ljust(3,' ')[:3], v.app_name.ljust(60,' ')[:60],
                     start_time_str.ljust(8,' '), complete_time_str.ljust(8,' '), str(elapsed_time).ljust(11,' ')[:11],
                     state_str  + "│", file=fileptr, sep="│")
@@ -1363,9 +1358,10 @@ def main():
             valid_ref = True
             ref_app.app_args = " --nographics"
             reflist.create_ref_list(ref_app, wulist, env)
-            reflist.print(title="Reference Job List")
+            #reflist.print(title="Reference Job List")
         os.chdir(cwd)
         reflist.check_ref_results(env)
+        reflist.print(title="Reference Job List", show_skipped=True)
 
     # Create a final job list from the applist and wulist and append reflist
     joblist = JOB_LIST()
