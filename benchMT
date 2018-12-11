@@ -52,9 +52,9 @@ __copyright__ = "Copyright (C) 2018 RueiKe"
 __credits__ = "Testing: Keith Myers"
 __license__ = "GNU General Public License"
 __program_name__ = "benchMT"
-__version__ = "v1.1.1"
+__version__ = "v1.2.0"
 __maintainer__ = "RueiKe"
-__status__ = "Added color coded states"
+__status__ = "Release"
 
 import argparse
 import re
@@ -933,33 +933,36 @@ class JOB_LIST:
                                 print("REF Name: ", ref_result_file, file=env.sum_file_ptr)
                                 print("", file=env.sum_file_ptr)
     
-                                # compare results to reference
-                                v.similarity = "Unknown"
-                                v.q_value = "Unknown"
-                                command_str = env.wucmpcmd + " " + cur_result_file + " " + ref_result_file + " 2>/dev/null"
-                                if mb_const.DEBUG == True: print("Results compare command: ", command_str)
-                                cmd = subprocess.Popen(command_str, shell=True, stdout=subprocess.PIPE)
-                                for line in cmd.stdout:
-                                    linestr = line.decode("utf-8").strip()
-                                    print(linestr, file=env.sum_file_ptr)
-                                    if mb_const.DEBUG == True: print("Results compare output: ", linestr)
-                                    searchObj = re.search('Result', linestr)
-                                    if(searchObj != None):
-                                        line_str_items = linestr.split(':')
-                                        if len(line_str_items) >= 2 :
-                                            result_str = line_str_items[1].strip()
-                                            result_str_items = result_str.split(',')
-                                            v.similarity = result_str_items[0].strip()
-                                            v.similarity = v.similarity.replace('.','')
-                                            if len(result_str_items) >= 2 :
-                                                q_str_items = result_str_items[1].split('=')
-                                                v.q_value = q_str_items[1].strip()
-                                            else : 
-                                                v.q_value = "0.0%"
-                                        else :
-                                            v.similarity = "ERROR"
-                                            v.q_value = "ERROR"
-                                cmd.stdout.close()
+                                if ref_result_file != "":
+                                    # compare results to reference
+                                    v.similarity = "Unknown"
+                                    v.q_value = "Unknown"
+                                    command_str = env.wucmpcmd + " " + cur_result_file + " " + ref_result_file + " 2>/dev/null"
+                                    if mb_const.DEBUG == True: print("Results compare command: ", command_str)
+                                    cmd = subprocess.Popen(command_str, shell=True, stdout=subprocess.PIPE)
+                                    for line in cmd.stdout:
+                                        linestr = line.decode("utf-8").strip()
+                                        print(linestr, file=env.sum_file_ptr)
+                                        if mb_const.DEBUG == True: print("Results compare output: ", linestr)
+                                        searchObj = re.search('Result', linestr)
+                                        if(searchObj != None):
+                                            line_str_items = linestr.split(':')
+                                            if len(line_str_items) >= 2 :
+                                                result_str = line_str_items[1].strip()
+                                                result_str_items = result_str.split(',')
+                                                v.similarity = result_str_items[0].strip()
+                                                v.similarity = v.similarity.replace('.','')
+                                                if len(result_str_items) >= 2 :
+                                                    q_str_items = result_str_items[1].split('=')
+                                                    v.q_value = q_str_items[1].strip()
+                                                else : 
+                                                    v.q_value = "0.0%"
+                                            else :
+                                                v.similarity = "ERROR"
+                                                v.q_value = "ERROR"
+                                    cmd.stdout.close()
+                                else:
+                                    print("Error: No reference results file.", file=env.sum_file_ptr)
                                 print("=".ljust(80, "="), file=env.sum_file_ptr)
                                 print("", file=env.sum_file_ptr)
                             else:
