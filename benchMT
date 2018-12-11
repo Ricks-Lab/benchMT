@@ -1153,7 +1153,6 @@ class SLOTS_LIST:
                 dev_str = " NA"
             else:
                 dev_str = " " + str(v.device)
-            dev_str = dev_str.ljust(7, ' ')
             state_str = v.state
             state_str = state_str.ljust(6, ' ')
             if v.job == "": 
@@ -1169,19 +1168,16 @@ class SLOTS_LIST:
             if fileptr == sys.stdout:
                 if v.state == "ACTIVE":
                     #Blue
-                    state_str = '\x1b[1;37;44m' +"  "+ v.state.ljust(10,' ')[:10] + '\x1b[0m'
+                    state_str = '\x1b[1;37;44m' + ("  "+v.state).ljust(10,' ')[:10] + '\x1b[0m'
                 elif v.state == "EMPTY":
                     #Yellow
-                    state_str = '\x1b[1;30;43m' + "  "+v.state.ljust(10,' ')[:10] + '\x1b[0m'
+                    state_str = '\x1b[1;30;43m' + ("  "+v.state).ljust(10,' ')[:10] + '\x1b[0m'
             else:
                 state_str = v.state.ljust(10,' ')[:10]
 
             if compact_flag == False :
                 print("├─".ljust(5,'─'), "─".ljust(3,'─'), "─".ljust(3,'─'), "─".ljust(40,'─'), "─".ljust(30,'─'),
                     "─".ljust(10,'─'), "─".ljust(10,'─') + "┤", file=fileptr, sep="┼")
-            #print("│" + slotnum_str.ljust(4,' '), v.platform.ljust(3,' ')[:3], slotnum_str.ljust(3,' '), app_str.ljust(40,' ')[:40],
-                    #app_arg_str.ljust(30,' ')[:30], wu_name_str.ljust(10,' ')[:10], v.state.ljust(10,' ')[:10] +
-                    #"│", file=fileptr, sep="│")
             print("│" + slotnum_str.ljust(4,' '), v.platform.ljust(3,' ')[:3], dev_str.ljust(3,' '), app_str.ljust(40,' ')[:40],
                     app_arg_str.ljust(30,' ')[:30], wu_name_str.ljust(10,' ')[:10], state_str + "│", file=fileptr, sep="│")
 
@@ -1439,8 +1435,8 @@ def main():
     if(os.path.isdir(env.summary_path) == False):
         print("Failed to make benchMT testData subdir [", env.summary_path,"]")
         exit(-1)
-    env.sum_file_ptr = open(env.summary_file, 'w')
-    env.psv_file_ptr = open(env.psv_file, 'w')
+    env.sum_file_ptr = open(env.summary_file, 'w', 1)
+    env.psv_file_ptr = open(env.psv_file, 'w', 1)
     print(__program_name__ + " " +  __version__ +  " \u2015 SETI MB Benchmarking Utility \u2015 Linux edition\n",
             file=env.sum_file_ptr)
     if args.noBS == False:
