@@ -50,6 +50,7 @@
 * Changed *--ref_signals* option to *--std_signals* for clarity.
 
 ## Development Plans and Known Limitations
+* Implement a *--force_ref* which will generate new reference results even if they already exist.
 * Currently, running more than one job at a time on a single GPU is not supported. 
 * Consider using opencl instead of lshw to get valid GPU compute platforms, but maybe won't work for cuda apps
 * Should consider executing job with time command.  This should give total and CPU time metrics
