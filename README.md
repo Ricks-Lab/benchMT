@@ -31,7 +31,10 @@
  files for each job run. A run name can be specified with the *--run_name* commane line option. This
  name will be included in the name of the testData subdirectory for the current run.
 
-## New in this Release  -  v1.2.0
+## New in this Release  -  v1.3.0
+* working down my TODO list
+
+## New in Previous Release  -  v1.2.0
 * Fixed a problem with the when lock_file was created and checked.  Now placed before slot initialization.
 * Fixed issue where program would exit if Reference file didn't exist.  Now an error message is printed and no comparison results are printed to summary files.
 * Added commmand line option *--no_ref* which will not create reference results when selected.  This is useful for characterizing potential reference WUs.

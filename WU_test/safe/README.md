@@ -8,6 +8,5 @@
 
 ## Known Issues
 * Some of the WUs are old and may not represent current distribution of work.
-* None of these WUs contain a Gaussian type signal.
 
   

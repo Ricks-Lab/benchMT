@@ -52,9 +52,9 @@ __copyright__ = "Copyright (C) 2018 RueiKe"
 __credits__ = "Testing: Keith Myers"
 __license__ = "GNU General Public License"
 __program_name__ = "benchMT"
-__version__ = "v1.2.0"
+__version__ = "v1.3.0"
 __maintainer__ = "RueiKe"
-__status__ = "Stable Release"
+__status__ = "Under Development"
 
 import argparse
 import re
