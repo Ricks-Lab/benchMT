@@ -59,6 +59,7 @@ __status__ = "Under Development"
 import argparse
 import re
 import subprocess
+import shlex
 import socket
 import os
 import platform
@@ -1481,22 +1482,19 @@ def main():
                     if plat == "GPU":
                         device_arg = " -device " + str(slots.list[slot_num].device) + " "
                         slots.list[slot_num].job.app_args = device_arg + slots.list[slot_num].job.app_args 
-                        cmd_str_list = [env.gpu_app_path + slots.list[slot_num].job.app_name, slots.list[slot_num].job.app_args]
+                        cmd_str = env.gpu_app_path + slots.list[slot_num].job.app_name + " " + slots.list[slot_num].job.app_args
                     elif plat == "CPU":
-                        cmd_str_list = [env.cpu_app_path + slots.list[slot_num].job.app_name , " " + slots.list[slot_num].job.app_args]
+                        cmd_str = env.cpu_app_path + slots.list[slot_num].job.app_name + " " + slots.list[slot_num].job.app_args
                     else:
-                        cmd_str_list = [env.ref_app_path + slots.list[slot_num].job.app_name , " " + slots.list[slot_num].job.app_args]
-                    if mb_const.DEBUG == True: print(cmd_str_list)
+                        cmd_str = env.ref_app_path + slots.list[slot_num].job.app_name + " " + slots.list[slot_num].job.app_args
+                    if mb_const.DEBUG == True: print(cmd_str)
 
 
                     #cd to slot dir and execute app with args
                     # TODO should consider executing job with time command
-                    # TODO need to figure out how to run this without a shell
                     os.chdir(slots.list[slot_num].slot_dir)
                     slots.list[slot_num].job.start_time = datetime.utcnow()
-                    #slots.list[slot_num].job.cmd = subprocess.Popen(cmd_str_list, shell=False, stdout=subprocess.PIPE)
-                    slots.list[slot_num].job.cmd = subprocess.Popen(cmd_str_list[0] + " " + cmd_str_list[1],
-                            shell=True, stdout=subprocess.PIPE)
+                    slots.list[slot_num].job.cmd = subprocess.Popen(shlex.split(cmd_str), shell=False, stdout=subprocess.PIPE)
                     # TODO deal with an immediate fail to spawn a process
                     os.chdir(env.current_dir)
                     num_available_pslots = slots.available_pslots()
