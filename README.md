@@ -32,6 +32,8 @@
  name will be included in the name of the testData subdirectory for the current run.
 
 ## New in this Release  -  v1.3.0
+* SETI MB apps are now ran without a shell.  used shlex to parse args for the subprocess command.
+* Implemented *--force_ref* option to force generation of reference results, even if they already exist.
 * working down my TODO list
 
 ## New in Previous Release  -  v1.2.0
