@@ -525,6 +525,13 @@ class BENCH_JOB:
         self.cnt_pulse = 0
         self.cnt_triplet = 0
         self.cnt_gaussian = 0
+        self.time_real = -1
+        self.time_user = -1
+        self.time_system = -1
+        self.time_maxmem = -1
+        self.time_swapnum = -1
+        self.time_ctxswt = -1
+        self.time_majpf = -1
 
     def copy(self, src):
         # Don't copy uuid self.uuid = item_id src.uuid
@@ -548,6 +555,13 @@ class BENCH_JOB:
         self.cnt_pulse = src.cnt_pulse
         self.cnt_triplet = src.cnt_triplet
         self.cnt_gaussian = src.cnt_gaussian
+        self.time_real = src.time_real
+        self.time_user = src.time_user
+        self.time_system = src.time_system
+        self.time_maxmem = src.time_maxmem
+        self.time_swapnum = src.time_swapnum
+        self.time_ctxswt = src.time_ctxswt
+        self.time_majpf = src.time_majpf
 
 class JOB_LIST:
     def __init__(self):
@@ -761,7 +775,8 @@ class JOB_LIST:
     def psv_print(self, env, fileptr=sys.stdout):
         print("Host", "CPU","CPU-MHz", "JobID", "Platform", "app_name", "app_args", "wu_name", "angle_range",
                 "spike_cnt", "autocorr_cnt", "pulse_cnt", "triplet_cnt", "gaussian_cnt", "start_time", "complete_time",
-                "elapsed_time", "state", "Q", "similarity", "error", file=fileptr, sep="|")
+                "elapsed_time", "real_time", "user_time", "sys_time", "maxmem", "swapnum", "ctxswt", "majpf",
+                "state", "Q", "similarity", "error", file=fileptr, sep="|")
         for k, v in self.list.items() :
             if (v.state == "ACTIVE" or v.state == "COMPLETE") and v.start_time != "NA" :
                 start_time_str = v.start_time.strftime('%H:%M:%S')
@@ -781,8 +796,9 @@ class JOB_LIST:
                 error_str = v.error
             print(env.hostname, env.cpu_model, env.cpu_mhz, v.uuid, v.platform, v.app_name, v.app_args,
                     v.wu_name, v.angle_range, v.cnt_spike, v.cnt_autocorr, v.cnt_pulse, v.cnt_triplet,
-                    v.cnt_gaussian, start_time_str, complete_time_str, elapsed_time, v.state,
-                    v.q_value, v.similarity, error_str, file=fileptr, sep="|")
+                    v.cnt_gaussian, start_time_str, complete_time_str, elapsed_time, v.time_real,
+                    v.time_user, v.time_system, v.time_maxmem, v.time_swapnum, v.time_ctxswt, v.time_majpf,
+                    v.state, v.q_value, v.similarity, error_str, file=fileptr, sep="|")
 
     def jobcount_bystatus(self):
         num_pending_jobs = {"PENDING":0, "COMPLETE":0, "ACTIVE":0, "TOTAL":0}
@@ -853,10 +869,28 @@ class JOB_LIST:
 
                         if v.platform != "REF" :
                             # Read results of time from the subprocess
-                            # TODO this doesn't work
-                            for line in v.cmd.stdout:
+                            for line in v.cmd.stderr:
                                 linestr = line.decode("utf-8").strip()
-                                print("Time output: " + linestr)
+                                if mb_const.DEBUG == True: print("Time output: " + linestr)
+                                searchObj = re.search('Real=', linestr)
+                                if(searchObj != None):
+                                    lineItem = linestr.split('|')
+                                    for timestr in lineItem:
+                                        timeItem = timestr.split('=')
+                                        if timeItem[0] == "Real":
+                                            v.time_real = timeItem[1]
+                                        elif timeItem[0] == "User":
+                                            v.time_user = timeItem[1]
+                                        elif timeItem[0] == "System":
+                                            v.time_system = timeItem[1]
+                                        elif timeItem[0] == "MaxMem":
+                                            v.time_maxmem = timeItem[1]
+                                        elif timeItem[0] == "SwapNum":
+                                            v.time_swapnum = timeItem[1]
+                                        elif timeItem[0] == "CtxSwt":
+                                            v.time_ctxswt = timeItem[1]
+                                        elif timeItem[0] == "MajPF":
+                                            v.time_majpf = timeItem[1]
 
                             #find ref-result file
                             file_srch = glob.glob(env.ref_results_path + "/ref-result." + "*." + v.wu_name + ".sah")
@@ -939,6 +973,14 @@ class JOB_LIST:
                                 print("Results:  ", cur_result_file, file=env.sum_file_ptr)
                                 print("REF Name: ", ref_result_file, file=env.sum_file_ptr)
                                 print("", file=env.sum_file_ptr)
+                                print("Real Time:   ", v.time_real, file=env.sum_file_ptr)
+                                print("User Time:   ", v.time_user, file=env.sum_file_ptr)
+                                print("System Time: ", v.time_system, file=env.sum_file_ptr)
+                                print("MaxMem:      ", v.time_maxmem, file=env.sum_file_ptr)
+                                print("SwapNum:     ", v.time_swapnum, file=env.sum_file_ptr)
+                                print("CtxSwt:      ", v.time_ctxswt, file=env.sum_file_ptr)
+                                print("MajPF:       ", v.time_majpf, file=env.sum_file_ptr)
+                                print("", file=env.sum_file_ptr)
     
                                 if ref_result_file != "":
                                     # compare results to reference
@@ -982,6 +1024,14 @@ class JOB_LIST:
                                 print("WU Name:  ", v.wu_name, file=env.sum_file_ptr)
                                 print("Results:  ", cur_result_file, file=env.sum_file_ptr)
                                 print("REF Name: ", ref_result_file, file=env.sum_file_ptr)
+                                print("", file=env.sum_file_ptr)
+                                print("Real Time:   ", v.time_real, file=env.sum_file_ptr)
+                                print("User Time:   ", v.time_user, file=env.sum_file_ptr)
+                                print("System Time: ", v.time_system, file=env.sum_file_ptr)
+                                print("MaxMem:      ", v.time_maxmem, file=env.sum_file_ptr)
+                                print("SwapNum:     ", v.time_swapnum, file=env.sum_file_ptr)
+                                print("CtxSwt:      ", v.time_ctxswt, file=env.sum_file_ptr)
+                                print("MajPF:       ", v.time_majpf, file=env.sum_file_ptr)
                                 print("", file=env.sum_file_ptr)
 
                         else : #v.platform == REF
@@ -1499,14 +1549,17 @@ def main():
                         cmd_str = env.ref_app_path + slots.list[slot_num].job.app_name + " " + slots.list[slot_num].job.app_args
                     if mb_const.DEBUG == True: print(cmd_str)
 
-                    # TODO should consider executing job with time command
+                    # execute job with time command
                     cmd_str = '/usr/bin/time -f \"Real=%e|User=%U|System=%S|MaxMem=%M|SwapNum=%W|CtxSwt=%c|MajPF=%F\" ' + cmd_str
+                    if mb_const.DEBUG == True: print("Final command: "+ cmd_str)
 
                     #cd to slot dir and execute app with args
                     os.chdir(slots.list[slot_num].slot_dir)
                     slots.list[slot_num].job.start_time = datetime.utcnow()
-                    slots.list[slot_num].job.cmd = subprocess.Popen(shlex.split(cmd_str), shell=False, stdout=subprocess.PIPE)
-                    # TODO deal with an immediate fail to spawn a process
+                    slots.list[slot_num].job.cmd = subprocess.Popen(shlex.split(cmd_str), shell=False, stderr=subprocess.PIPE)
+                    if slots.list[slot_num].job.cmd.poll() != None:
+                        #TODO write a function that will close the job as an error
+                        print("ERROR: could not spawn MB process")
                     os.chdir(env.current_dir)
                     num_available_pslots = slots.available_pslots()
                     num_pending_pjobs = joblist.pending_pjobs()
