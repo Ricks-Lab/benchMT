@@ -4,10 +4,11 @@
  This tool will extract the total number of CPU cores/threads and GPU platforms from the user's
  environment and utilize them in running a list of apps/args specified in the benchCFG file.  Using
  less than total number of CPU threads can be specified in the command line.  This tool will read a
- list of MB apps/args from the benchCFG file and search for the specified MB apps in the APP_CPU
+ list of MB apps/args from the BenchCFG file and search for the specified MB apps in the APP_CPU
  and APP_GPU directories to validate and determine platform.  It will then leverage available
  threads, as specified, to run all benchmark jobs storing results in the testData directory.  Use
- the --help option to get a description of valid command line arguments.
+ the --help option to get a description of valid command line arguments. In support of automation,
+ some command line arguments can be specified as mode in the BenchCFG file.
 
  By default, a summary list of all jobs will update in the display as the program progresses.  If
  there are a large number of jobs, then this display may not be useful and the --display_slots
@@ -16,18 +17,20 @@
  optimize the progress display.
 
  You may need to use the --boinc_home command option to specify the boinc home directory, which
- is required, since boinccmd is used.
+ is required, since boinccmd is used. An alternative BenchCFG file can be specified with the
+ command line option --cfg_file filename.
 
  All WUs in the WU_test directory will be used in the creation of jobs to be run, unless the 
  --std_signals option is used, in which case, WUs in the WU_std_signal will be used.  The
  APPS_GPU and APPS_CPU can have more apps than are specified to run in the BenchCFG file, but must
- contain apps specified in BenchCFG.  The APPS_REF must contain a single CPU reference app with a
- file prefix of "ref-cpu.".  The stock CPU app is suggested, as this is only used to test
- integrity of the results.  Elapsed time analysis is expected to be limited to apps/arg
- combinations specified in BenchCFG.
+ contain apps specified in BenchCFG.  The APPS_REF directory must contain a single CPU reference
+ app with a file prefix of "ref-cpu.".  The stock CPU app is suggested, as this is only used to
+ test integrity of the results.  Elapsed time analysis is expected to be limited to apps/arg
+ combinations specified in BenchCFG.  The generation of reference results can be skipped with the
+ --no_ref option or forced with the --force_ref option.
 
  The results will be stored in a unique subdir of the testData directory. There is an overall run
- log txt file, a .psv file useful for importing into an analytics tools, and the .sah and stderr
+ log txt file, a psv file useful for importing into an analytics tools, and the .sah and stderr
  files for each job run. A run name can be specified with the --run_name commane line option.  
  This name will be included in the name of the testData subdirectory for the current run.
 
@@ -52,13 +55,14 @@ __copyright__ = "Copyright (C) 2018 RueiKe"
 __credits__ = "Testing: Keith Myers"
 __license__ = "GNU General Public License"
 __program_name__ = "benchMT"
-__version__ = "v1.2.0"
+__version__ = "v1.3.0"
 __maintainer__ = "RueiKe"
 __status__ = "Stable Release"
 
 import argparse
 import re
 import subprocess
+import shlex
 import socket
 import os
 import platform
@@ -207,6 +211,11 @@ class BENCH_ENV:
         self.time_now_short = t.strftime('%m%d_%H%M%S')
         self.hostname = socket.gethostname()
         self.platform = platform.system() + " " + platform.release()
+
+        # Check access to time command
+        if shutil.which("/usr/bin/time") == None:
+            print("OS Command [time] not found")
+            valid = False
 
         # Get OS details
         if shutil.which("lsb_release") == None:
@@ -524,6 +533,13 @@ class BENCH_JOB:
         self.cnt_pulse = 0
         self.cnt_triplet = 0
         self.cnt_gaussian = 0
+        self.time_real = -1
+        self.time_user = -1
+        self.time_system = -1
+        self.time_maxmem = -1
+        self.time_swapnum = -1
+        self.time_ctxswt = -1
+        self.time_majpf = -1
 
     def copy(self, src):
         # Don't copy uuid self.uuid = item_id src.uuid
@@ -547,6 +563,13 @@ class BENCH_JOB:
         self.cnt_pulse = src.cnt_pulse
         self.cnt_triplet = src.cnt_triplet
         self.cnt_gaussian = src.cnt_gaussian
+        self.time_real = src.time_real
+        self.time_user = src.time_user
+        self.time_system = src.time_system
+        self.time_maxmem = src.time_maxmem
+        self.time_swapnum = src.time_swapnum
+        self.time_ctxswt = src.time_ctxswt
+        self.time_majpf = src.time_majpf
 
 class JOB_LIST:
     def __init__(self):
@@ -728,11 +751,18 @@ class JOB_LIST:
                 elif v.state == "PENDING":
                     #Yellow
                     state_str = '\x1b[1;30;43m' + v.state.ljust(8,' ')[:8] + '\x1b[0m'
-                elif v.state == "COMPLETE":
+                elif v.state == "COMPLETE" and (v.exit_status == 0 or v.exit_status == ""):
                     #Green
                     state_str = '\x1b[1;30;42m' + v.state.ljust(8,' ')[:8] + '\x1b[0m'
+                elif v.state == "COMPLETE":
+                    #Red
+                    state_str = '\x1b[1;37;41m' + " ERROR".ljust(8,' ')[:8] + '\x1b[0m'
             else:
-                state_str = v.state.ljust(8,' ')[:8]
+                if v.exit_status == 0 or v.exit_status == "":
+                    state_str = v.state.ljust(8,' ')[:8]
+                else:
+                    state_str = " ERROR".ljust(8,' ')[:8]
+
 
             if compact_flag == False:
                 print("├─".ljust(5,'─'), "─".ljust(4,'─'), "─".ljust(3,'─'), "─".ljust(60,'─'),
@@ -760,7 +790,8 @@ class JOB_LIST:
     def psv_print(self, env, fileptr=sys.stdout):
         print("Host", "CPU","CPU-MHz", "JobID", "Platform", "app_name", "app_args", "wu_name", "angle_range",
                 "spike_cnt", "autocorr_cnt", "pulse_cnt", "triplet_cnt", "gaussian_cnt", "start_time", "complete_time",
-                "elapsed_time", "state", "Q", "similarity", "error", file=fileptr, sep="|")
+                "elapsed_time", "real_time", "user_time", "sys_time", "maxmem", "swapnum", "ctxswt", "majpf",
+                "state", "Q", "similarity", "error", file=fileptr, sep="|")
         for k, v in self.list.items() :
             if (v.state == "ACTIVE" or v.state == "COMPLETE") and v.start_time != "NA" :
                 start_time_str = v.start_time.strftime('%H:%M:%S')
@@ -780,8 +811,9 @@ class JOB_LIST:
                 error_str = v.error
             print(env.hostname, env.cpu_model, env.cpu_mhz, v.uuid, v.platform, v.app_name, v.app_args,
                     v.wu_name, v.angle_range, v.cnt_spike, v.cnt_autocorr, v.cnt_pulse, v.cnt_triplet,
-                    v.cnt_gaussian, start_time_str, complete_time_str, elapsed_time, v.state,
-                    v.q_value, v.similarity, error_str, file=fileptr, sep="|")
+                    v.cnt_gaussian, start_time_str, complete_time_str, elapsed_time, v.time_real,
+                    v.time_user, v.time_system, v.time_maxmem, v.time_swapnum, v.time_ctxswt, v.time_majpf,
+                    v.state, v.q_value, v.similarity, error_str, file=fileptr, sep="|")
 
     def jobcount_bystatus(self):
         num_pending_jobs = {"PENDING":0, "COMPLETE":0, "ACTIVE":0, "TOTAL":0}
@@ -846,11 +878,40 @@ class JOB_LIST:
                 if v.state == "ACTIVE" :
                     es = v.cmd.poll()
                     if es != None:
+                        print("=".ljust(80, "="), file=env.sum_file_ptr)
                         v.complete_time = datetime.utcnow()
                         v.state = "COMPLETE"
                         v.exit_status = es
+                        if v.exit_status != 0:
+                            v.error = v.error + "[Job Execution error]"
+                            print("ERROR: time returned non zero.  Job execution error")
+                            print("ERROR: time returned non zero.  Job execution error", file=env.sum_file_ptr)
 
                         if v.platform != "REF" :
+                            # Read results of time from the subprocess
+                            for line in v.cmd.stderr:
+                                linestr = line.decode("utf-8").strip()
+                                if mb_const.DEBUG == True: print("Time output: " + linestr)
+                                searchObj = re.search('Real=', linestr)
+                                if(searchObj != None):
+                                    lineItem = linestr.split('|')
+                                    for timestr in lineItem:
+                                        timeItem = timestr.split('=')
+                                        if timeItem[0] == "Real":
+                                            v.time_real = timeItem[1]
+                                        elif timeItem[0] == "User":
+                                            v.time_user = timeItem[1]
+                                        elif timeItem[0] == "System":
+                                            v.time_system = timeItem[1]
+                                        elif timeItem[0] == "MaxMem":
+                                            v.time_maxmem = timeItem[1]
+                                        elif timeItem[0] == "SwapNum":
+                                            v.time_swapnum = timeItem[1]
+                                        elif timeItem[0] == "CtxSwt":
+                                            v.time_ctxswt = timeItem[1]
+                                        elif timeItem[0] == "MajPF":
+                                            v.time_majpf = timeItem[1]
+
                             #find ref-result file
                             file_srch = glob.glob(env.ref_results_path + "/ref-result." + "*." + v.wu_name + ".sah")
                             if len(file_srch) > 0:
@@ -919,7 +980,7 @@ class JOB_LIST:
                                 resfptr.close()
 
                                 # write to run log
-                                print("=".ljust(80, "="), file=env.sum_file_ptr)
+                                #print("=".ljust(80, "="), file=env.sum_file_ptr)
                                 print("App Name: ", v.app_name, file=env.sum_file_ptr)
                                 print("App Args: ", v.app_args, file=env.sum_file_ptr)
                                 print("WU Name:  ", v.wu_name, file=env.sum_file_ptr)
@@ -931,6 +992,14 @@ class JOB_LIST:
                                 print("Gaussian count: ", v.cnt_gaussian, file=env.sum_file_ptr)
                                 print("Results:  ", cur_result_file, file=env.sum_file_ptr)
                                 print("REF Name: ", ref_result_file, file=env.sum_file_ptr)
+                                print("", file=env.sum_file_ptr)
+                                print("Real Time:   ", v.time_real, file=env.sum_file_ptr)
+                                print("User Time:   ", v.time_user, file=env.sum_file_ptr)
+                                print("System Time: ", v.time_system, file=env.sum_file_ptr)
+                                print("MaxMem:      ", v.time_maxmem, file=env.sum_file_ptr)
+                                print("SwapNum:     ", v.time_swapnum, file=env.sum_file_ptr)
+                                print("CtxSwt:      ", v.time_ctxswt, file=env.sum_file_ptr)
+                                print("MajPF:       ", v.time_majpf, file=env.sum_file_ptr)
                                 print("", file=env.sum_file_ptr)
     
                                 if ref_result_file != "":
@@ -968,13 +1037,21 @@ class JOB_LIST:
                             else:
                                 print("ERROR: can not open results file: ", cur_result_file)
                                 # write to run log
-                                print("=".ljust(80, "="), file=env.sum_file_ptr)
+                                #print("=".ljust(80, "="), file=env.sum_file_ptr)
                                 print("ERROR: can not open results file: ", cur_result_file, file=env.sum_file_ptr)
                                 print("App Name: ", v.app_name, file=env.sum_file_ptr)
                                 print("App Args: ", v.app_args, file=env.sum_file_ptr)
                                 print("WU Name:  ", v.wu_name, file=env.sum_file_ptr)
                                 print("Results:  ", cur_result_file, file=env.sum_file_ptr)
                                 print("REF Name: ", ref_result_file, file=env.sum_file_ptr)
+                                print("", file=env.sum_file_ptr)
+                                print("Real Time:   ", v.time_real, file=env.sum_file_ptr)
+                                print("User Time:   ", v.time_user, file=env.sum_file_ptr)
+                                print("System Time: ", v.time_system, file=env.sum_file_ptr)
+                                print("MaxMem:      ", v.time_maxmem, file=env.sum_file_ptr)
+                                print("SwapNum:     ", v.time_swapnum, file=env.sum_file_ptr)
+                                print("CtxSwt:      ", v.time_ctxswt, file=env.sum_file_ptr)
+                                print("MajPF:       ", v.time_majpf, file=env.sum_file_ptr)
                                 print("", file=env.sum_file_ptr)
 
                         else : #v.platform == REF
@@ -1201,6 +1278,7 @@ def main():
     parser.add_argument("--gpu_devices", help="Specify which GPUs to use: 0,1,2", type=str, default="")
     parser.add_argument("--std_signals", help="Use standard signal WUs instead of Test WUs", action="store_true", default=False)
     parser.add_argument("--no_ref", help="Do not generate reference results", action="store_true", default=False)
+    parser.add_argument("--force_ref", help="Force generation of reference results", action="store_true", default=False)
     parser.add_argument("--admin_mkdirs", help="Make required directories", action="store_true", default=False)
     parser.add_argument("-d", "--debug", help="Debug output", action="store_true", default=False)
     args = parser.parse_args()
@@ -1208,6 +1286,11 @@ def main():
 
 
     if args.debug == True :  mb_const.DEBUG = True
+
+    if args.no_ref == True and args.force_ref == True:
+        print("ERROR: --no_ref and --force_ref are mutually exclusive.  Exiting...")
+        sys.exit(-1)
+
     # Set and verify working environment
     if args.about == True :  
         print(__doc__ )
@@ -1218,12 +1301,12 @@ def main():
         print("Version: ", __version__)
         print("Maintainer: ", __maintainer__)
         print("Status: ", __status__)
-        exit(0)
+        sys.exit(0)
     env = BENCH_ENV()
     if(env.set_env() == False): 
-        if args.makedirs == True :
+        if args.admin_mkdirs == True :
             env.makedirs()
-            exit(0)
+            sys.exit(0)
         print("Error in environment.  Exiting...")
         sys.exit(-1)
 
@@ -1333,7 +1416,7 @@ def main():
             print("Set specified gpu_devices: ", str(specified_gpu_devices))
         else:
             print("Mismatch with allocated GPUS, specified gpu_devices NOT set: [", args.gpu_devices, "]")
-            exit(-1)
+            sys.exit(-1)
 
     env.print()
 
@@ -1359,7 +1442,10 @@ def main():
             reflist.create_ref_list(ref_app, wulist, env)
             #reflist.print(title="Reference Job List")
         os.chdir(cwd)
-        reflist.check_ref_results(env)
+        if args.force_ref :
+            print("Forcing Reference Results Generation")
+        else:
+            reflist.check_ref_results(env)
         reflist.print(title="Reference Job List", show_skipped=True)
 
     # Create a final job list from the applist and wulist and append reflist
@@ -1397,7 +1483,7 @@ def main():
     # check if there is already and instance running in this directory
     if env.is_bench_conflict() :
         print("Another instance of benchMT is running in this directory, exiting...")
-        exit(-1)
+        sys.exit(-1)
     slots = SLOTS_LIST()
     slots.create_slot_list(env.allocated_cthreads)
     if slots.initialize_slots(env, num_gpu_slots) == False :
@@ -1411,7 +1497,7 @@ def main():
     print("Pending jobs (CPU/GPU): ", num_pending_pjobs["CPU"],"/", num_pending_pjobs["GPU"])
     print("Pending reference jobs: ", num_pending_pjobs["REF"])
     if args.yes == False :
-        if input("Execute listed jobs? [y/N]").lower() != 'y': exit(1)
+        if input("Execute listed jobs? [y/N]").lower() != 'y': sys.exit(1)
     # check if there is already and instance running in this directory
     #This check is too late in the flow
     #if env.is_bench_conflict() :
@@ -1434,7 +1520,7 @@ def main():
     os.mkdir(env.summary_path)
     if(os.path.isdir(env.summary_path) == False):
         print("Failed to make benchMT testData subdir [", env.summary_path,"]")
-        exit(-1)
+        sys.exit(-1)
     env.sum_file_ptr = open(env.summary_file, 'w', 1)
     env.psv_file_ptr = open(env.psv_file, 'w', 1)
     print(__program_name__ + " " +  __version__ +  " \u2015 SETI MB Benchmarking Utility \u2015 Linux edition\n",
@@ -1481,23 +1567,28 @@ def main():
                     if plat == "GPU":
                         device_arg = " -device " + str(slots.list[slot_num].device) + " "
                         slots.list[slot_num].job.app_args = device_arg + slots.list[slot_num].job.app_args 
-                        cmd_str_list = [env.gpu_app_path + slots.list[slot_num].job.app_name, slots.list[slot_num].job.app_args]
+                        cmd_str = env.gpu_app_path + slots.list[slot_num].job.app_name + " " + slots.list[slot_num].job.app_args
                     elif plat == "CPU":
-                        cmd_str_list = [env.cpu_app_path + slots.list[slot_num].job.app_name , " " + slots.list[slot_num].job.app_args]
+                        cmd_str = env.cpu_app_path + slots.list[slot_num].job.app_name + " " + slots.list[slot_num].job.app_args
                     else:
-                        cmd_str_list = [env.ref_app_path + slots.list[slot_num].job.app_name , " " + slots.list[slot_num].job.app_args]
-                    if mb_const.DEBUG == True: print(cmd_str_list)
+                        cmd_str = env.ref_app_path + slots.list[slot_num].job.app_name + " " + slots.list[slot_num].job.app_args
+                    if mb_const.DEBUG == True: print(cmd_str)
 
+                    # execute job with time command
+                    cmd_str = '/usr/bin/time -f \"Real=%e|User=%U|System=%S|MaxMem=%M|SwapNum=%W|CtxSwt=%c|MajPF=%F\" ' + cmd_str
+                    if mb_const.DEBUG == True: print("Final command: "+ cmd_str)
 
                     #cd to slot dir and execute app with args
-                    # TODO should consider executing job with time command
-                    # TODO need to figure out how to run this without a shell
                     os.chdir(slots.list[slot_num].slot_dir)
                     slots.list[slot_num].job.start_time = datetime.utcnow()
-                    #slots.list[slot_num].job.cmd = subprocess.Popen(cmd_str_list, shell=False, stdout=subprocess.PIPE)
-                    slots.list[slot_num].job.cmd = subprocess.Popen(cmd_str_list[0] + " " + cmd_str_list[1],
-                            shell=True, stdout=subprocess.PIPE)
-                    # TODO deal with an immediate fail to spawn a process
+                    slots.list[slot_num].job.cmd = subprocess.Popen(shlex.split(cmd_str), shell=False, stderr=subprocess.PIPE)
+                    if slots.list[slot_num].job.cmd.poll() != None:
+                        #TODO not sure if this works since time function doesn't fail fast enough for this to be triggered
+                        slots.list[slot_num].job.complete_time = datetime.utcnow()
+                        slots.list[slot_num].job.state = "COMPLETE"
+                        slots.list[slot_num].job.exit_status = "ERROR"
+                        slots.free_slot(slots.list[slot_num])
+                        print("ERROR: could not spawn MB process")
                     os.chdir(env.current_dir)
                     num_available_pslots = slots.available_pslots()
                     num_pending_pjobs = joblist.pending_pjobs()

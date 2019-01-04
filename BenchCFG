@@ -57,7 +57,8 @@
 ##############################################################################
 ##
 MBv8_8.22r3584_sse2_clAMD_HD5_x86_64-pc-linux-gnu -v 1 -instances_per_device 1 -sbs 2048 -period_iterations_num 1 -tt 500 -spike_fft_thresh 8192 -tune 1 64 1 4 -oclfft_tune_gr 256 -oclfft_tune_lr 16 -oclfft_tune_wg 256 -oclfft_tune_ls 512 -oclfft_tune_bn 64 -oclfft_tune_cw 64 -hp -high_perf -no_defaults_scaling
-#MBv8_8.22r3584_sse2_clAMD_HD5_x86_64-pc-linux-gnu -v 1
+#setiathome_8.22_x86_64-pc-linux-gnu__opencl_ati5_sah -v 1
+#setiathome_8.22_x86_64-pc-linux-gnu__opencl_ati5_SoG -v 1
 
 #MBv8_8.04r3306_sse2_linux64 --nographics
 #MBv8_8.04r3306_sse41_linux64 --nographics
