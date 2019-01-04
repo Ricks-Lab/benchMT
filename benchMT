@@ -1266,6 +1266,11 @@ def main():
 
 
     if args.debug == True :  mb_const.DEBUG = True
+
+    if args.no_ref == True and args.force_ref == True:
+        print("ERROR: --no_ref and --force_ref are mutually exclusive.  Exiting...")
+        sys.exit(-1)
+
     # Set and verify working environment
     if args.about == True :  
         print(__doc__ )
@@ -1276,12 +1281,12 @@ def main():
         print("Version: ", __version__)
         print("Maintainer: ", __maintainer__)
         print("Status: ", __status__)
-        exit(0)
+        sys.exit(0)
     env = BENCH_ENV()
     if(env.set_env() == False): 
         if args.makedirs == True :
             env.makedirs()
-            exit(0)
+            sys.exit(0)
         print("Error in environment.  Exiting...")
         sys.exit(-1)
 
@@ -1391,7 +1396,7 @@ def main():
             print("Set specified gpu_devices: ", str(specified_gpu_devices))
         else:
             print("Mismatch with allocated GPUS, specified gpu_devices NOT set: [", args.gpu_devices, "]")
-            exit(-1)
+            sys.exit(-1)
 
     env.print()
 
@@ -1458,7 +1463,7 @@ def main():
     # check if there is already and instance running in this directory
     if env.is_bench_conflict() :
         print("Another instance of benchMT is running in this directory, exiting...")
-        exit(-1)
+        sys.exit(-1)
     slots = SLOTS_LIST()
     slots.create_slot_list(env.allocated_cthreads)
     if slots.initialize_slots(env, num_gpu_slots) == False :
@@ -1472,7 +1477,7 @@ def main():
     print("Pending jobs (CPU/GPU): ", num_pending_pjobs["CPU"],"/", num_pending_pjobs["GPU"])
     print("Pending reference jobs: ", num_pending_pjobs["REF"])
     if args.yes == False :
-        if input("Execute listed jobs? [y/N]").lower() != 'y': exit(1)
+        if input("Execute listed jobs? [y/N]").lower() != 'y': sys.exit(1)
     # check if there is already and instance running in this directory
     #This check is too late in the flow
     #if env.is_bench_conflict() :
@@ -1495,7 +1500,7 @@ def main():
     os.mkdir(env.summary_path)
     if(os.path.isdir(env.summary_path) == False):
         print("Failed to make benchMT testData subdir [", env.summary_path,"]")
-        exit(-1)
+        sys.exit(-1)
     env.sum_file_ptr = open(env.summary_file, 'w', 1)
     env.psv_file_ptr = open(env.psv_file, 'w', 1)
     print(__program_name__ + " " +  __version__ +  " \u2015 SETI MB Benchmarking Utility \u2015 Linux edition\n",
