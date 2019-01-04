@@ -19,12 +19,13 @@
  command line option *--cfg_file filename*.
 
  All WUs in the WU_test directory will be used in the creation of jobs to be run, unless the 
- *--ref_signals* option is used, in which case, WUs in the WU_std_signal will be used.  The
+ *--std_signals* option is used, in which case, WUs in the WU_std_signal will be used.  The
  APPS_GPU and APPS_CPU can have more apps than are specified to run in the BenchCFG file, but must
  contain apps specified in BenchCFG.  The APPS_REF must contain a single CPU reference app with a
  file prefix of "ref-cpu.".  The stock CPU app is suggested, as this is only used to test
  integrity of the results.  Elapsed time analysis is expected to be limited to apps/arg
- combinations specified in BenchCFG.
+ combinations specified in BenchCFG.  The generation of reference results can be skipped with the
+ *--no_ref* option or forced with the *--force_ref* option.
 
  The results will be stored in a unique subdir of the testData directory. There is an overall run
  log txt file, a .psv file useful for importing into an analytics tools, and the .sah and stderr
@@ -55,10 +56,7 @@
 * Changed *--ref_signals* option to *--std_signals* for clarity.
 
 ## Development Plans and Known Limitations
-* Implement a *--force_ref* which will generate new reference results even if they already exist.
 * Currently, running more than one job at a time on a single GPU is not supported. 
-* Consider using opencl instead of lshw to get valid GPU compute platforms, but maybe won't work for cuda apps
-* Should consider executing job with time command.  This should give total and CPU time metrics
-* Need to figure out how to run a job without a shell
-* Deal with an immediate fail to spawn a process when executing a job
+* Consider using opencl instead of lshw to get valid GPU compute platforms, but maybe won't work for cuda apps.
+* Deal with an immediate fail to spawn a process when executing a job.
 
