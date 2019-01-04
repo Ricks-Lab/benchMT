@@ -751,11 +751,18 @@ class JOB_LIST:
                 elif v.state == "PENDING":
                     #Yellow
                     state_str = '\x1b[1;30;43m' + v.state.ljust(8,' ')[:8] + '\x1b[0m'
-                elif v.state == "COMPLETE":
+                elif v.state == "COMPLETE" and (v.exit_status == 0 or v.exit_status == ""):
                     #Green
                     state_str = '\x1b[1;30;42m' + v.state.ljust(8,' ')[:8] + '\x1b[0m'
+                elif v.state == "COMPLETE":
+                    #Red
+                    state_str = '\x1b[1;37;41m' + " ERROR".ljust(8,' ')[:8] + '\x1b[0m'
             else:
-                state_str = v.state.ljust(8,' ')[:8]
+                if v.exit_status == 0 or v.exit_status == "":
+                    state_str = v.state.ljust(8,' ')[:8]
+                else:
+                    state_str = " ERROR".ljust(8,' ')[:8]
+
 
             if compact_flag == False:
                 print("├─".ljust(5,'─'), "─".ljust(4,'─'), "─".ljust(3,'─'), "─".ljust(60,'─'),
