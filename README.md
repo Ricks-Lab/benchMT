@@ -37,7 +37,7 @@
 * SETI MB apps are now run without a shell, using shlex to parse args for the subprocess command.
 * Implemented *--force_ref* option to force generation of reference results, even if they already exist.
 * Implemented job execution with time command. Time relevant data is written to summary and psv files.
-* Added job execution error checking.  Bad exit status will result in updated error fields in summary and psv files, but error still not be indicated in status display.
+* Added job execution error checking.  Bad exit status will result in updated error fields in summary/psv files and status display.
 
 ## New in Previous Release  -  v1.2.0
 * Fixed a problem with the when lock_file was created and checked.  Now placed before slot initialization.
@@ -59,6 +59,5 @@
 
 ## Development Plans and Known Limitations
 * Currently, running more than one job at a time on a single GPU is not supported. 
-* Consider using opencl instead of lshw to get valid GPU compute platforms, but maybe won't work for cuda apps.
-* Jobs that error out should say something other than complete in the status display.
+* Consider an alternative to lshw to get valid GPU compute platforms, since lshw doesn't check for compute capability.
 
