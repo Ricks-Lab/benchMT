@@ -6,7 +6,8 @@
  list of MB apps/args from the benchCFG file and search for the specified MB apps in the APP_CPU
  and APP_GPU directories to validate and determine platform.  It will then leverage allocated
  threads, as specified, to run all benchmark jobs, storing results in the testData directory.  Use
- the *--help* option to get a description of valid command line arguments.
+ the *--help* option to get a description of valid command line arguments. In support of automation,
+ some command line arguments can be specified as mode in the BenchCFG file.
 
  By default, a summary list of all jobs will update in the display as the program progresses.  If
  there are a large number of jobs, then this display may not be useful and the *--display_slots*
@@ -21,21 +22,22 @@
  All WUs in the WU_test directory will be used in the creation of jobs to be run, unless the 
  *--std_signals* option is used, in which case, WUs in the WU_std_signal will be used.  The
  APPS_GPU and APPS_CPU can have more apps than are specified to run in the BenchCFG file, but must
- contain apps specified in BenchCFG.  The APPS_REF must contain a single CPU reference app with a
- file prefix of "ref-cpu.".  The stock CPU app is suggested, as this is only used to test
- integrity of the results.  Elapsed time analysis is expected to be limited to apps/arg
+ contain apps specified in BenchCFG.  The APPS_REF directory must contain a single CPU reference
+ app with a file prefix of "ref-cpu.".  The stock CPU app is suggested, as this is only used to
+ test integrity of the results.  Elapsed time analysis is expected to be limited to apps/arg
  combinations specified in BenchCFG.  The generation of reference results can be skipped with the
  *--no_ref* option or forced with the *--force_ref* option.
 
  The results will be stored in a unique subdir of the testData directory. There is an overall run
- log txt file, a .psv file useful for importing into an analytics tools, and the .sah and stderr
+ log txt file, a psv file useful for importing into an analytics tools, and the .sah and stderr
  files for each job run. A run name can be specified with the *--run_name* commane line option. This
  name will be included in the name of the testData subdirectory for the current run.
 
 ## New in this Release  -  v1.3.0
-* SETI MB apps are now run without a shell, with shlex to parse args for the subprocess command.
+* SETI MB apps are now run without a shell, using shlex to parse args for the subprocess command.
 * Implemented *--force_ref* option to force generation of reference results, even if they already exist.
 * Implemented job execution with time command. Time relevant data is written to summary and psv files.
+* Added job execution error checking.  Bad exit status will result in updated error fields in summary and psv files, but error still not be indicated in status display.
 
 ## New in Previous Release  -  v1.2.0
 * Fixed a problem with the when lock_file was created and checked.  Now placed before slot initialization.
@@ -58,5 +60,5 @@
 ## Development Plans and Known Limitations
 * Currently, running more than one job at a time on a single GPU is not supported. 
 * Consider using opencl instead of lshw to get valid GPU compute platforms, but maybe won't work for cuda apps.
-* Deal with an immediate fail to spawn a process when executing a job.
+* Jobs that error out should say something other than complete in the status display.
 
