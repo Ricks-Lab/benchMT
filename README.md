@@ -2,12 +2,12 @@
 
  This tool will extract the total number of CPU cores/threads and GPU platforms from the user's
  environment and utilize them in running a list of apps/args specified in the benchCFG file.  Using
- less than total number of CPU threads can be specified in the command line.  This tool will read a
- list of MB apps/args from the benchCFG file and search for the specified MB apps in the APP_CPU
- and APP_GPU directories to validate and determine platform.  It will then leverage allocated
+ less than the total number of CPU threads can be specified in the command line.  This tool will
+ read a list of MB apps/args from the BenchCFG file and search for the specified MB apps in the
+ APP_CPU and APP_GPU directories to validate and determine platform.  It will then leverage allocated
  threads, as specified, to run all benchmark jobs, storing results in the testData directory.  Use
  the *--help* option to get a description of valid command line arguments. In support of automation,
- some command line arguments can be specified as mode in the BenchCFG file.
+ some command line arguments can be specified as modes in the BenchCFG file.
 
  By default, a summary list of all jobs will update in the display as the program progresses.  If
  there are a large number of jobs, then this display may not be useful and the *--display_slots*
@@ -21,15 +21,15 @@
 
  All WUs in the WU_test directory will be used in the creation of jobs to be run, unless the 
  *--std_signals* option is used, in which case, WUs in the WU_std_signal will be used.  The
- APPS_GPU and APPS_CPU can have more apps than are specified to run in the BenchCFG file, but must
- contain apps specified in BenchCFG.  The APPS_REF directory must contain a single CPU reference
- app with a file prefix of "ref-cpu.".  The stock CPU app is suggested, as this is only used to
- test integrity of the results.  Elapsed time analysis is expected to be limited to apps/arg
- combinations specified in BenchCFG.  The generation of reference results can be skipped with the
- *--no_ref* option or forced with the *--force_ref* option.
+ APPS_GPU and APPS_CPU directories can have more apps than are specified to run in the BenchCFG
+ file, but must contain apps specified in BenchCFG.  The APPS_REF directory must contain a single
+ CPU reference app with a file prefix of "ref-cpu.".  The stock CPU app is suggested, as this is
+ only used to test integrity of the results.  Elapsed time analysis is expected to be limited to
+ apps/arg combinations specified in BenchCFG.  The generation of reference results can be skipped
+ with the *--no_ref* option or forced with the *--force_ref* option.
 
  The results will be stored in a unique subdir of the testData directory. There is an overall run
- log txt file, a psv file useful for importing into an analytics tools, and the .sah and stderr
+ log txt file, a psv file useful for importing into an analytics tools, and the sah and stderr
  files for each job run. A run name can be specified with the *--run_name* commane line option. This
  name will be included in the name of the testData subdirectory for the current run.
 
