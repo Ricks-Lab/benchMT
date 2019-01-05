@@ -1587,6 +1587,7 @@ def main():
                         slots.list[slot_num].job.complete_time = datetime.utcnow()
                         slots.list[slot_num].job.state = "COMPLETE"
                         slots.list[slot_num].job.exit_status = "ERROR"
+                        slots.list[slot_num].job.error = slots.list[slot_num].job.error + "[Job Execution error]"
                         slots.free_slot(slots.list[slot_num])
                         print("ERROR: could not spawn MB process")
                     os.chdir(env.current_dir)
