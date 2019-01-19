@@ -33,7 +33,12 @@
  files for each job run. A run name can be specified with the *--run_name* commane line option. This
  name will be included in the name of the testData subdirectory for the current run.
 
-## New in this Release  -  v1.3.0
+## New in this Release  -  v1.4.0
+* Write run_name to the psv file.  Useful when wanting to analyze the data from multiple runs.
+* Include nVidia stock MB app in the distribution.
+* Include error message when job fails to spawn.
+
+## New in Previous Release  -  v1.3.0
 * SETI MB apps are now run without a shell, using shlex to parse args for the subprocess command.
 * Implemented *--force_ref* option to force generation of reference results, even if they already exist.
 * Implemented job execution with time command. Time relevant data is written to summary and psv files.
