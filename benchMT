@@ -788,7 +788,7 @@ class JOB_LIST:
             print(v.wu_name, file=fileptr)
 
     def psv_print(self, env, fileptr=sys.stdout):
-        print("Host", "CPU","CPU-MHz", "JobID", "Platform", "app_name", "app_args", "wu_name", "angle_range",
+        print("Host","RunName", "CPU","CPU-MHz", "JobID", "Platform", "app_name", "app_args", "wu_name", "angle_range",
                 "spike_cnt", "autocorr_cnt", "pulse_cnt", "triplet_cnt", "gaussian_cnt", "start_time", "complete_time",
                 "elapsed_time", "real_time", "user_time", "sys_time", "maxmem", "swapnum", "ctxswt", "majpf",
                 "state", "Q", "similarity", "error", file=fileptr, sep="|")
@@ -809,7 +809,12 @@ class JOB_LIST:
                 error_str = "None"
             else:
                 error_str = v.error
-            print(env.hostname, env.cpu_model, env.cpu_mhz, v.uuid, v.platform, v.app_name, v.app_args,
+            if env.run_name == "":
+                psv_run_name = "NA"
+            else:
+                psv_run_name = env.run_name
+                
+            print(env.hostname, psv_run_name, env.cpu_model, env.cpu_mhz, v.uuid, v.platform, v.app_name, v.app_args,
                     v.wu_name, v.angle_range, v.cnt_spike, v.cnt_autocorr, v.cnt_pulse, v.cnt_triplet,
                     v.cnt_gaussian, start_time_str, complete_time_str, elapsed_time, v.time_real,
                     v.time_user, v.time_system, v.time_maxmem, v.time_swapnum, v.time_ctxswt, v.time_majpf,
