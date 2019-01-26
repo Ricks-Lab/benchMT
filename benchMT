@@ -55,7 +55,7 @@ __copyright__ = "Copyright (C) 2018 RueiKe"
 __credits__ = "Testing: Keith Myers"
 __license__ = "GNU General Public License"
 __program_name__ = "benchMT"
-__version__ = "v1.4.0"
+__version__ = "v1.4.1"
 __maintainer__ = "RueiKe"
 __status__ = "Stable Release"
 
@@ -1307,6 +1307,17 @@ def main():
         print("Maintainer: ", __maintainer__)
         print("Status: ", __status__)
         sys.exit(0)
+
+    # Check python version
+    (python_major, python_minor, python_patch) = platform.python_version_tuple()
+    if python_major < "3":
+        print("Using python" + python_major + ", but benchMT requires python3. Exiting...")
+        sys.exit(0)
+    if python_minor < "6":
+        print("Using python " + python_major +"."+ python_minor +"."+ python_patch +
+                " but, benchMT requires python 3.6 and up. Exiting...")
+        sys.exit(0)
+
     env = BENCH_ENV()
     if(env.set_env() == False): 
         if args.admin_mkdirs == True :
