@@ -216,7 +216,7 @@ class GPU_LIST:
             if len(hw_file_srch) > 1:
                 print("More than one hwmon file found: ", hw_file_srch)
             gpu_item.hwmon_path = hw_file_srch[0] + "/"
-            print("hwmon_path: ", gpu_item.hwmon_path)
+            if mb_const.DEBUG: print("hwmon_path: ", gpu_item.hwmon_path)
             self.list[gpu_item.uuid] = gpu_item
 
     def set_gpu_details(self):
@@ -285,9 +285,9 @@ class GPU_LIST:
         print(f"Device {device_num} maps to card {card_num}")
 
         for k,v in self.list.items():
-            print(f"Compare v.card_num: {v.card_num} to card_num: {card_num}")
+            if mb_const.DEBUG: print(f"Compare v.card_num: {v.card_num} to card_num: {card_num}")
             if v.card_num == card_num:
-                print(f"Device {device_num} maps to card {v.card_num}")
+                if mb_const.DEBUG: print(f"Device {device_num} maps to card {v.card_num}")
                 return(v)
         return(self.list["NONE"])
 
@@ -385,7 +385,7 @@ class BENCH_ENV:
                     self.amdgpu_Flag = None
                     return(self.amdgpu_Flag)
                 else:
-                    #print(f"amdgpu-utils non-compatible driver: {driver_str}")
+                    if mb_const.DEBUG: print(f"amdgpu-utils non-compatible driver: {driver_str}")
                     self.amdgpu_Flag = False
                     return(self.amdgpu_Flag)
         self.amdgpu_Flag = None
@@ -826,7 +826,6 @@ class JOB_LIST:
         filelist = os.listdir(path=wu_path)
         for line in filelist:
             line = line.strip()
-            #print(line)
             if line.endswith('.wu') == True :
                 job = BENCH_JOB(uuid4().hex)
                 job.wu_name = line
