@@ -55,9 +55,9 @@ __copyright__ = "Copyright (C) 2018 RueiKe"
 __credits__ = "Testing: Keith Myers"
 __license__ = "GNU General Public License"
 __program_name__ = "benchMT"
-__version__ = "v1.4.1"
+__version__ = "v1.5.0"
 __maintainer__ = "RueiKe"
-__status__ = "Stable Release"
+__status__ = "Development"
 
 import argparse
 import re
@@ -72,6 +72,7 @@ from datetime import datetime
 from uuid import uuid4
 import glob 
 import shutil 
+from pathlib import Path
 
 
 class MB_CONST:
@@ -93,6 +94,14 @@ class MB_CONST:
         self.resume_args = ["boinccmd --set_gpu_mode never 1", "boinccmd --set_run_mode never 1"]
         self.activeWU = "work_unit.sah"
         self.DEBUG = False
+
+        # Items required for AMD Energy feature
+        self.ENERGY = False
+        self.featuremask = "/sys/module/amdgpu/parameters/ppfeaturemask"
+        self.amdgpu_flag = None
+        self.card_root = "/sys/class/drm/"
+        self.hwmon_sub = "hwmon/hwmon"
+
 mb_const=MB_CONST()
 
 class CFG_MODES:
@@ -108,6 +117,7 @@ class CFG_MODES:
                 "max_threads" : None,
                 "max_gpus" : None,
                 "gpu_devices" : None,
+                "devmap" : None,
                 "std_signals" : None,
                 }
         self.type = {
@@ -121,6 +131,7 @@ class CFG_MODES:
                 "max_threads" : "Numeric",
                 "max_gpus" : "Numeric",
                 "gpu_devices" : "String",
+                "devmap" : "String",
                 "std_signals" : "Logical",
                 }
 
@@ -152,6 +163,135 @@ class CFG_MODES:
             return False
         return(self.modes[mode_name])
 
+class GPU_ITEM:
+    def __init__(self, item_id):
+        self.uuid = item_id
+        self.card_num = -1
+        self.boinc_device_num = -1
+        self.model = ""
+        self.model_short = ""
+        self.card_path = ""
+        self.hwmon_path = ""
+        self.pcie_id = ""
+        self.driver = ""
+        self.amdgpu_compatible = False
+        time_0 = datetime.utcnow()
+        self.energy = {"t0": time_0, "tn": time_0, "cummulative": 0.0}
+        self.power = -1
+
+    def reset_energy(self):
+        time_0 = datetime.utcnow()
+        self.energy = {"t0": time_0, "tn": time_0, "cummulative": 0.0}
+
+    def get_energy(self):
+        return(self.energy["cummulative"])
+
+    def update_energy_data(self):
+        if(os.path.isfile(self.hwmon_path + "power1_average") == True):
+            with open(self.hwmon_path + "power1_average") as hwmon_file:
+                power_uw = int(hwmon_file.readline())
+                time_n = datetime.utcnow()
+                self.power = int(power_uw)/1000000
+                delta_hrs = ((time_n - self.energy["tn"]).total_seconds())/3600
+                self.energy["tn"] = time_n
+                self.energy["cummulative"] += delta_hrs * power_uw/1000000000
+            hwmon_file.close()
+        else:
+            print("Error: HW file doesn't exist: %s" % (self.hwmon_path + "power1_average"), file=sys.stderr)
+            print("For card path: %s" % (self.card_path), file=sys.stderr)
+
+
+class GPU_LIST:
+    def __init__(self):
+        self.list = {}
+        devmap = {}
+        self.list["NONE"] = GPU_ITEM(uuid4().hex)
+
+    def set_gpu_list(self):
+        for card_name in glob.glob(mb_const.card_root + "card?/device/pp_od_clk_voltage"):
+            gpu_item = GPU_ITEM(uuid4().hex)
+            gpu_item.card_path = card_name.replace("pp_od_clk_voltage",'')
+            gpu_item.card_num = int(card_name.replace("/device/pp_od_clk_voltage",'').replace(mb_const.card_root + "card", ''))
+            hw_file_srch = glob.glob(os.path.join(gpu_item.card_path, "hwmon/hwmon?"))
+            if len(hw_file_srch) > 1:
+                print("More than one hwmon file found: ", hw_file_srch)
+            gpu_item.hwmon_path = hw_file_srch[0] + "/"
+            print("hwmon_path: ", gpu_item.hwmon_path)
+            self.list[gpu_item.uuid] = gpu_item
+
+    def set_gpu_details(self):
+        pcie_ids = subprocess.check_output(
+            'lspci | grep -E \"^.*(VGA|Display).*\[AMD\/ATI\].*$\" | grep -Eo \"^([0-9a-fA-F]+:[0-9a-fA-F]+.[0-9a-fA-F])\"',
+            shell=True).decode().split()
+        if mb_const.DEBUG: print("Found %s GPUs" % len(pcie_ids))
+        for pcie_id in pcie_ids:
+            if mb_const.DEBUG: print("GPU: ", pcie_id)
+            lspci_items = subprocess.check_output("lspci -k -s " + pcie_id, shell=True).decode().split("\n")
+
+            #Get Long GPU Name
+            #Line 0 name
+            gpu_name_0 = ""
+            gpu_name_items = lspci_items[0].split('[AMD/ATI]')
+            if len(gpu_name_items) < 2:
+                gpu_name_0 = "UNKNOWN"
+            else:
+                gpu_name_0 = gpu_name_items[1]
+            #Line 1 name
+            gpu_name_1 = ""
+            gpu_name_items = lspci_items[1].split('[AMD/ATI]')
+            if len(gpu_name_items) < 2:
+                gpu_name_1 = "UNKNOWN"
+            else:
+                gpu_name_1 = gpu_name_items[1]
+            if len(gpu_name_0) > len(gpu_name_1):
+                gpu_name = gpu_name_0
+            else:
+                gpu_name = gpu_name_1
+
+            #Get Driver Name
+            driver_module_items = lspci_items[2].split(':')
+            if len(driver_module_items) < 2:
+                driver_module = "UNKNOWN"
+            else:
+                driver_module = driver_module_items[1].strip()
+
+            if mb_const.DEBUG: print(lspci_items)
+            # Find matching card
+            device_dirs = glob.glob(mb_const.card_root + "card?/device")
+            for device_dir in device_dirs:
+                sysfspath = str(Path(device_dir).resolve())
+                if mb_const.DEBUG: print("device_dir: ", device_dir)
+                if mb_const.DEBUG: print("sysfspath: ", sysfspath)
+                if mb_const.DEBUG: print("pcie_id: ", pcie_id)
+                if mb_const.DEBUG: print("sysfspath-7: ", sysfspath[-7:])
+                if pcie_id == sysfspath[-7:]:
+                    for k, v in self.list.items():
+                        if v.card_path == device_dir + '/':
+                            v.pcie_id = pcie_id
+                            v.driver = driver_module
+                            v.model = gpu_name
+                            model_short = re.sub(r'^.*\[','', gpu_name)
+                            model_short = re.sub(r'\].*$','', model_short)
+                            model_short = re.sub(r'.*Radeon','', model_short)
+                            v.model_short = model_short
+                    break
+
+    def get_device_gpu(self, device_num):
+        try:
+            card_num = self.devmap[device_num]
+        except:
+            card_num = -1
+            return(self.list["NONE"])
+        print(f"Device {device_num} maps to card {card_num}")
+
+        for k,v in self.list.items():
+            print(f"Compare v.card_num: {v.card_num} to card_num: {card_num}")
+            if v.card_num == card_num:
+                print(f"Device {device_num} maps to card {v.card_num}")
+                return(v)
+        return(self.list["NONE"])
+
+
 
 class BENCH_ENV:
     def __init__(self):
@@ -162,6 +302,7 @@ class BENCH_ENV:
         self.os_desc = ""
         self.cpu_model = ""
         self.cpu_mhz = ""
+        self.amdfeaturemask = ""
         self.total_cpu_threads = 0
         self.total_cpu_cores = 0
         self.total_gpu_threads = 0               # TODO currently total_gpu_threads = total_gpu_count, both needed for GPU SMT
@@ -197,6 +338,58 @@ class BENCH_ENV:
         self.mode_display_compact = False
         self.mode_no_ref = False
 
+    def check_env(self):
+        # Check python version
+        (python_major, python_minor, python_patch) = platform.python_version_tuple()
+        if python_major < "3":
+            print("Using python" + python_major + ", but benchMT requires python3.", file=sys.stderr)
+            return(-1)
+        if python_minor < "6":
+            print("Using python " + python_major +"."+ python_minor +"."+ python_patch +
+                    " but, benchMT requires python 3.6 and up.", file=sys.stderr)
+            return(-1)
+
+        # Check Linux Kernel version
+        linux_version = platform.release()
+        if int(linux_version.split(".")[0]) < 4:
+            print(f"Using Linux Kernel {linux_version} but benchMT requires > 4.17.", file=sys.stderr)
+            return(-2)
+        if int(linux_version.split(".")[1]) < 8:
+            print(f"Using Linux Kernel {linux_version} but benchMT requires > 4.17.", file=sys.stderr)
+            return(-2)
+        return(0)
+
+    def check_amdgpu(self):
+        # Check AMD GPU Driver Version
+        lshw_out = subprocess.check_output(shlex.split('lshw -c video'), shell=False,
+                stderr=subprocess.DEVNULL).decode().split("\n")
+        for lshw_line in lshw_out:
+            searchObj = re.search('configuration:', lshw_line)
+            if(searchObj != None):
+                lineitems = lshw_line.split(sep=':')
+                driver_str = lineitems[1].strip()
+                searchObj = re.search('driver=amdgpu', driver_str)
+                if(searchObj != None):
+                    try:
+                        with open(mb_const.featuremask) as fm_file:
+                            self.amdfeaturemask = int(fm_file.readline())
+                            if self.amdfeaturemask == int(0xffff7fff) or self.amdfeaturemask == int(0xffffffff) :
+                                self.amdgpu_Flag = True
+                                return(self.amdgpu_Flag)
+                            else:
+                                self.amdgpu_Flag = False
+                                return(self.amdgpu_Flag)
+                    except:
+                        self.amdgpu_Flag = False
+                        return(self.amdgpu_Flag)
+                    self.amdgpu_Flag = None
+                    return(self.amdgpu_Flag)
+                else:
+                    #print(f"amdgpu-utils non-compatible driver: {driver_str}")
+                    self.amdgpu_Flag = False
+                    return(self.amdgpu_Flag)
+        self.amdgpu_Flag = None
+        return(self.amdgpu_Flag)
 
     def set_env(self):
         """ Setup the working environment to run benchmarks
@@ -540,6 +733,7 @@ class BENCH_JOB:
         self.time_swapnum = -1
         self.time_ctxswt = -1
         self.time_majpf = -1
+        self.energy = -1
 
     def copy(self, src):
         # Don't copy uuid self.uuid = item_id src.uuid
@@ -790,7 +984,7 @@ class JOB_LIST:
     def psv_print(self, env, fileptr=sys.stdout):
         print("Host","RunName", "CPU","CPU-MHz", "JobID", "Platform", "app_name", "app_args", "wu_name", "angle_range",
                 "spike_cnt", "autocorr_cnt", "pulse_cnt", "triplet_cnt", "gaussian_cnt", "start_time", "complete_time",
-                "elapsed_time", "real_time", "user_time", "sys_time", "maxmem", "swapnum", "ctxswt", "majpf",
+                "elapsed_time", "real_time", "user_time", "sys_time", "energy", "maxmem", "swapnum", "ctxswt", "majpf",
                 "state", "Q", "similarity", "error", file=fileptr, sep="|")
         for k, v in self.list.items() :
             if (v.state == "ACTIVE" or v.state == "COMPLETE") and v.start_time != "NA" :
@@ -817,7 +1011,7 @@ class JOB_LIST:
             print(env.hostname, psv_run_name, env.cpu_model, env.cpu_mhz, v.uuid, v.platform, v.app_name, v.app_args,
                     v.wu_name, v.angle_range, v.cnt_spike, v.cnt_autocorr, v.cnt_pulse, v.cnt_triplet,
                     v.cnt_gaussian, start_time_str, complete_time_str, elapsed_time, v.time_real,
-                    v.time_user, v.time_system, v.time_maxmem, v.time_swapnum, v.time_ctxswt, v.time_majpf,
+                    v.time_user, v.time_system, v.energy, v.time_maxmem, v.time_swapnum, v.time_ctxswt, v.time_majpf,
                     v.state, v.q_value, v.similarity, error_str, file=fileptr, sep="|")
 
     def jobcount_bystatus(self):
@@ -882,11 +1076,18 @@ class JOB_LIST:
             for k, v in self.list.items() :
                 if v.state == "ACTIVE" :
                     es = v.cmd.poll()
-                    if es != None:
+                    if es == None:
+                        if mb_const.ENERGY == True:
+                            if v.platform == "GPU":
+                                v.gpu.update_energy_data()
+                    else:
                         print("=".ljust(80, "="), file=env.sum_file_ptr)
                         v.complete_time = datetime.utcnow()
                         v.state = "COMPLETE"
                         v.exit_status = es
+                        if mb_const.ENERGY == True:
+                            if v.platform == "GPU":
+                                v.energy = round(v.gpu.get_energy(),6)
                         if v.exit_status != 0:
                             v.error = v.error + "[Job Execution error]"
                             print("ERROR: time returned non zero.  Job execution error")
@@ -1162,12 +1363,14 @@ class SLOTS_LIST:
                 num_avail_slots += 1
         return(num_avail_slots)
 
-    def assign_job(self, jobs, slot_ID, job_ID):
+    def assign_job(self, jobs, slot_ID, job_ID, gpu_list, device):
         self.list[slot_ID].state =  "ACTIVE"
         self.list[slot_ID].job =jobs.list[job_ID] 
         jobs.list[job_ID].state = "ACTIVE"
         jobs.list[job_ID].slot = slot_ID
         jobs.list[job_ID].slot_dir = self.list[slot_ID].slot_dir
+        jobs.list[job_ID].gpu = gpu_list.get_device_gpu(device)
+        jobs.list[job_ID].gpu.reset_energy()
 
     def request_slot(self, platform):
         if platform == "REF": platform = "CPU"
@@ -1281,6 +1484,7 @@ def main():
     parser.add_argument("--max_threads", help="Specify max number of threads to load", type=int, default=0)
     parser.add_argument("--max_gpus", help="Specify max number of GPUs to load", type=int, default=0)
     parser.add_argument("--gpu_devices", help="Specify which GPUs to use: 0,1,2", type=str, default="")
+    parser.add_argument("--devmap", help="Specify mapping of boinc device to card #: {B:C,B:C}", type=str, default="")
     parser.add_argument("--std_signals", help="Use standard signal WUs instead of Test WUs", action="store_true", default=False)
     parser.add_argument("--no_ref", help="Do not generate reference results", action="store_true", default=False)
     parser.add_argument("--force_ref", help="Force generation of reference results", action="store_true", default=False)
@@ -1308,23 +1512,30 @@ def main():
         print("Status: ", __status__)
         sys.exit(0)
 
-    # Check python version
-    (python_major, python_minor, python_patch) = platform.python_version_tuple()
-    if python_major < "3":
-        print("Using python" + python_major + ", but benchMT requires python3. Exiting...")
-        sys.exit(0)
-    if python_minor < "6":
-        print("Using python " + python_major +"."+ python_minor +"."+ python_patch +
-                " but, benchMT requires python 3.6 and up. Exiting...")
-        sys.exit(0)
-
     env = BENCH_ENV()
+
+    # Check OS and python version
+    if env.check_env() < 0:
+        print("Error in environment. Exiting...")
+        sys.exit(-1)
+
     if(env.set_env() == False): 
         if args.admin_mkdirs == True :
             env.makedirs()
             sys.exit(0)
         print("Error in environment.  Exiting...")
         sys.exit(-1)
+
+    # Check if Energy metric is possible
+    gpu_list = GPU_LIST()
+    gpu_list.set_gpu_list()
+    if env.check_amdgpu() == True:
+        print("GPU Energy metrics enabled")
+        mb_const.ENERGY = True
+        gpu_list.set_gpu_list()
+        gpu_list.set_gpu_details()
+    else:
+        print("GPU Energy metrics not enabled")
 
     if len(args.cfg_file) > 0 :
         if args.cfg_file != "BenchCFG" :
@@ -1356,6 +1567,18 @@ def main():
     if cfg_modes.mode_value("display_compact") == True :  env.mode_display_compact = True
     if cfg_modes.mode_value("display_slots") == True :  env.mode_display_slots = True
     # read user specified GPU device list
+    cfg_devmap = {}
+    if cfg_modes.mode_value("devmap") != None:
+        if re.fullmatch('([0-9]:[0-9],)*([0-9]:[0-9])+', cfg_modes.mode_value("devmap")):
+            gdev_items = cfg_modes.mode_value("devmap").split(',')
+            cfg_devmap = {}
+            for gi in gdev_items:
+                giItems = gi.split(':')
+                cfg_devmap[int(giItems[0])] = int(giItems[1])
+            else:
+                print("CFG devmap: ", cfg_devmap)
+        else:
+            print("Invalid CFG devmap arg: [", cfg_modes.mode_value("devmap"), "]")
     cfg_gpu_devices = []
     if cfg_modes.mode_value("gpu_devices") != None:
         if re.fullmatch('([0-9],)*([0-9])+', cfg_modes.mode_value("gpu_devices")):
@@ -1393,6 +1616,18 @@ def main():
     if args.display_compact == True :  env.mode_display_compact = True
     if args.display_slots == True :  env.mode_display_slots = True
     # read user specified GPU device list
+    specified_devmap = {}
+    if len(args.devmap) > 0:
+        if re.fullmatch('([0-9]:[0-9],)*([0-9]:[0-9])+', args.devmap):
+            gdev_items = args.devmap.split(',')
+            specified_devmap = {}
+            for gi in gdev_items:
+                giItems = gi.split(':')
+                specified_devmap[int(giItems[0])] = int(giItems[1])
+            else:
+                print("Specified devmap: ", specified_devmap)
+        else:
+            print("Invalid devmap arg: [", args.devmap, "]")
     specified_gpu_devices = []
     if len(args.gpu_devices) > 0:
         if re.fullmatch('([0-9],)*([0-9])+', args.gpu_devices):
@@ -1422,6 +1657,13 @@ def main():
         env.allocated_gthreads = specified_max_gpus
     else:
         env.allocated_gthreads = env.total_gpu_threads
+
+    if len(specified_devmap) == 0:
+        if len(cfg_devmap) > 0:
+            specified_devmap = cfg_devmap
+    if len(specified_devmap) > 0:
+        env.devmap = specified_devmap
+        gpu_list.devmap = specified_devmap
 
     if len(specified_gpu_devices) == 0:
         if len(cfg_gpu_devices) > 0:
@@ -1573,7 +1815,9 @@ def main():
                     slot_num = slots.request_slot(plat)
                     job_num = joblist.request_job(plat)
                     if mb_const.DEBUG: print("SlotNum: ", slot_num, "JobUUID: ", job_num)
-                    slots.assign_job(joblist, slot_num, job_num) #changes states in both job and slot
+
+                    #changes states in both job and slot
+                    slots.assign_job(joblist, slot_num, job_num, gpu_list, slots.list[slot_num].device)
 
                     #Copy WU to slot
                     shutil.copy2(slots.list[slot_num].job.wu_path + slots.list[slot_num].job.wu_name,
