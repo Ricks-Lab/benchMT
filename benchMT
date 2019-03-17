@@ -478,8 +478,10 @@ class BENCH_ENV:
                 searchObj = re.search('display', linestr)
                 if(searchObj != None):
                     gpu_cnt += 1
-                    lineItem = linestr.split('[')
-                    gpu_str = gpu_str + " [" + lineItem[1]
+                    #lineItem = linestr.split('[')
+                    #gpu_str = gpu_str + " [" + lineItem[1]
+                    lineItem = linestr.split('display')
+                    gpu_str = gpu_str + " [" + lineItem[1] + "]"
                     continue
             cmd.stdout.close()
             self.total_gpu_count =  gpu_cnt
