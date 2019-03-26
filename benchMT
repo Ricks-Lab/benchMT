@@ -340,22 +340,30 @@ class BENCH_ENV:
 
     def check_env(self):
         # Check python version
+        required_pversion = [3,6]
         (python_major, python_minor, python_patch) = platform.python_version_tuple()
-        if python_major < "3":
-            print("Using python" + python_major + ", but benchMT requires python3.", file=sys.stderr)
+        if mb_const.DEBUG: print("Using python " + python_major +"."+ python_minor +"."+ python_patch)
+        if int(python_major) < required_pversion[0]:
+            print("Using python" + python_major + ", but " + __program_name__ +
+                    " requires python " + str(required_pversion[0]) +"."+ str(required_pversion[1]) + " or higher.",
+                    file=sys.stderr)
             return(-1)
-        if python_minor < "6":
-            print("Using python " + python_major +"."+ python_minor +"."+ python_patch +
-                    " but, benchMT requires python 3.6 and up.", file=sys.stderr)
+        elif int(python_major) == required_pversion[0] and int(python_minor) < required_pversion[1]:
+            print("Using python " + python_major +"."+ python_minor +"."+ python_patch + ", but " + __program_name__ +
+                    " requires python " + str(required_pversion[0]) +"."+ str(required_pversion[1]) + " or higher.",
+                    file=sys.stderr)
             return(-1)
 
         # Check Linux Kernel version
+        required_kversion = [4,8]
         linux_version = platform.release()
-        if int(linux_version.split(".")[0]) < 4:
-            print(f"Using Linux Kernel {linux_version} but benchMT requires > 4.17.", file=sys.stderr)
+        if int(linux_version.split(".")[0]) < required_kversion[0]:
+            print("Using Linux Kernel " +  linux_version + ", but " + __program_name__ + " requires > " +
+                    str(required_kversion[0]) +"."+ str(required_kversion[1]), file=sys.stderr)
             return(-2)
-        if int(linux_version.split(".")[1]) < 8:
-            print(f"Using Linux Kernel {linux_version} but benchMT requires > 4.17.", file=sys.stderr)
+        elif int(linux_version.split(".")[0]) == required_kversion[0] and int(linux_version.split(".")[1]) < required_kversion[1]:
+            print("Using Linux Kernel " + linux_version + ", but " + __program_name__ + " requires > " +
+                    str(required_kversion[0]) +"."+ str(required_kversion[1]), file=sys.stderr)
             return(-2)
         return(0)
 
@@ -481,7 +489,7 @@ class BENCH_ENV:
                     #lineItem = linestr.split('[')
                     #gpu_str = gpu_str + " [" + lineItem[1]
                     lineItem = linestr.split('display')
-                    gpu_str = gpu_str + " [" + lineItem[1] + "]"
+                    gpu_str = gpu_str + " [" + lineItem[1].strip() + "]"
                     continue
             cmd.stdout.close()
             self.total_gpu_count =  gpu_cnt
@@ -1486,6 +1494,7 @@ def main():
     parser.add_argument("--max_gpus", help="Specify max number of GPUs to load", type=int, default=0)
     parser.add_argument("--gpu_devices", help="Specify which GPUs to use: 0,1,2", type=str, default="")
     parser.add_argument("--devmap", help="Specify mapping of boinc device to card #: {B:C,B:C}", type=str, default="")
+    parser.add_argument("--energy", help="Report energy usage (amdgpu driver only)", action="store_true", default=False)
     parser.add_argument("--std_signals", help="Use standard signal WUs instead of Test WUs", action="store_true", default=False)
     parser.add_argument("--no_ref", help="Do not generate reference results", action="store_true", default=False)
     parser.add_argument("--force_ref", help="Force generation of reference results", action="store_true", default=False)
@@ -1530,13 +1539,14 @@ def main():
     # Check if Energy metric is possible
     gpu_list = GPU_LIST()
     gpu_list.set_gpu_list()
-    if env.check_amdgpu() == True:
-        print("GPU Energy metrics enabled")
-        mb_const.ENERGY = True
-        gpu_list.set_gpu_list()
-        gpu_list.set_gpu_details()
-    else:
-        print("GPU Energy metrics not enabled")
+    if args.energy == True:
+        if env.check_amdgpu() == True:
+            print("GPU Energy metrics enabled")
+            mb_const.ENERGY = True
+            gpu_list.set_gpu_list()
+            gpu_list.set_gpu_details()
+        else:
+            print("GPU Energy metrics not enabled")
 
     if len(args.cfg_file) > 0 :
         if args.cfg_file != "BenchCFG" :
