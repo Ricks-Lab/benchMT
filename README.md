@@ -1,5 +1,7 @@
 # benchMT  -  SETI multi-threaded MB Benchmark Tool
 
+ Download the latest release [here](https://github.com/Ricks-Lab/benchMT/releases/tag/v1.4.0)
+
  This tool will extract the total number of CPU cores/threads and GPU platforms from the user's
  environment and utilize them in running a list of apps/args specified in the benchCFG file.  Using
  less than the total number of CPU threads can be specified in the command line.  This tool will
@@ -33,7 +35,7 @@
  files for each job run. A run name can be specified with the *--run_name* commane line option. This
  name will be included in the name of the testData subdirectory for the current run.
 
-## New in this Release  -  v1.4.0
+## New in this Release  -  [v1.4.0](https://github.com/Ricks-Lab/benchMT/releases/tag/v1.4.0)
 * Write run_name to the psv file.  Useful when wanting to analyze the data from multiple runs.
 * Include nVidia stock MB app in the distribution.
 * Include error message when job fails to spawn.
