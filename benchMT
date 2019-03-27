@@ -310,6 +310,7 @@ class BENCH_ENV:
         self.allocated_cthreads = 0
         self.allocated_gthreads = 0
         self.gpu_devices = []
+        self.devmap = {}
         self.gpu_str = ""
         self.current_dir = ""
         self.cpu_app_path = ""
@@ -693,6 +694,7 @@ class BENCH_ENV:
         print("GPU Count: ", self.total_gpu_count, file=fileptr)
         print("GPU Threads: ", self.total_gpu_threads, file=fileptr)
         print("GPU Devices: ", str(self.gpu_devices), file=fileptr)
+        print("Devices Map: ", str(self.devmap), file=fileptr)
         print("GPU Details: ", self.gpu_str, file=fileptr)
         print("Current Dir: ", self.current_dir, file=fileptr)
         print("Slots Dir: ", self.slots_path, file=fileptr)
@@ -1684,8 +1686,14 @@ def main():
             env.gpu_devices = specified_gpu_devices
             print("Set specified gpu_devices: ", str(specified_gpu_devices))
         else:
-            print("Mismatch with allocated GPUS, specified gpu_devices NOT set: [", args.gpu_devices, "]")
+            print("Mismatch with allocated GPUS, reset allocated devices to %d" % len(specified_gpu_devices))
+            env.allocated_gthreads = len(specified_gpu_devices)
+
+    if args.energy == True:
+        if len(specified_devmap) != env.total_gpu_threads:
+            print("With Energy mode, a devmap must include all devices - devmap: " + str(specified_devmap) +  " devices: " + str(env.total_gpu_threads))
             sys.exit(-1)
+
 
     env.print()
 
