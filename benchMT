@@ -119,6 +119,7 @@ class CFG_MODES:
                 "gpu_devices" : None,
                 "devmap" : None,
                 "std_signals" : None,
+                "energy" : None,
                 }
         self.type = {
                 "yes" : "Logical",
@@ -133,6 +134,7 @@ class CFG_MODES:
                 "gpu_devices" : "String",
                 "devmap" : "String",
                 "std_signals" : "Logical",
+                "energy" : "Logical",
                 }
 
     def set_mode(self, mode_name, mode_value):
@@ -416,23 +418,28 @@ class BENCH_ENV:
 
         # Check access to time command
         if shutil.which("/usr/bin/time") == None:
-            print("OS Command [time] not found")
+            print("OS Command [time] not found", file=sys.stderr)
             valid = False
 
         # Get OS details
         if shutil.which("lsb_release") == None:
-            print("OS Command [lsb_release] not found")
+            print("OS Command [lsb_release] not found", file=sys.stderr)
             valid = False
         else:
-            cmd = subprocess.Popen('lsb_release -a 2>/dev/null', shell=True, stdout=subprocess.PIPE)
-            for line in cmd.stdout:
-                linestr = line.decode("utf-8").strip()
-                searchObj = re.search('Description', linestr)
-                if(searchObj != None):
-                    lineItem = linestr.split(':')
-                    self.os_desc = lineItem[1].strip()
-                    cmd.stdout.close()
-                    break
+            cmd_str = "lsb_release -a 2>/dev/null"
+            try:
+                cmd = subprocess.Popen(cmd_str, shell=True, stdout=subprocess.PIPE)
+                for line in cmd.stdout:
+                    linestr = line.decode("utf-8").strip()
+                    searchObj = re.search('Description', linestr)
+                    if(searchObj != None):
+                        lineItem = linestr.split(':')
+                        self.os_desc = lineItem[1].strip()
+                        cmd.stdout.close()
+                        break
+            except:
+                print("Warning: can not determine OS", file=sys.stderr)
+                self.os_desc = "UNKNOWN"
 
         # Get CPU details
         if shutil.which("lscpu") == None:
@@ -440,64 +447,84 @@ class BENCH_ENV:
             valid = False
         else:
             cpu_max_mhz = ""
-            cmd = subprocess.Popen('lscpu 2>/dev/null', shell=True, stdout=subprocess.PIPE)
-            for line in cmd.stdout:
-                linestr = line.decode("utf-8").strip()
-                searchObj = re.search('Model name', linestr)
-                if(searchObj != None):
-                    lineItem = linestr.split(':')
-                    self.cpu_model = lineItem[1].strip()
-                    continue
-                searchObj = re.search('CPU max MHz', linestr)
-                if(searchObj != None):
-                    lineItem = linestr.split(':')
-                    cpu_max_mhz = lineItem[1].strip()
-                    continue
-                searchObj = re.search('CPU MHz', linestr)
-                if(searchObj != None):
-                    lineItem = linestr.split(':')
-                    cpu_mhz = lineItem[1].strip()
-                    continue
-            if cpu_max_mhz == "" :
-               self.cpu_mhz = cpu_mhz
-            else :
-                self.cpu_mhz = cpu_max_mhz
-            cmd.stdout.close()
+            cmd_str = "lscpu 2>/dev/null"
+            #cmd = subprocess.Popen('lscpu 2>/dev/null', shell=True, stdout=subprocess.PIPE)
+            try:
+                cmd = subprocess.Popen(cmd_str, shell=True, stdout=subprocess.PIPE)
+                for line in cmd.stdout:
+                    linestr = line.decode("utf-8").strip()
+                    searchObj = re.search('Model name', linestr)
+                    if(searchObj != None):
+                        lineItem = linestr.split(':')
+                        self.cpu_model = lineItem[1].strip()
+                        continue
+                    searchObj = re.search('CPU max MHz', linestr)
+                    if(searchObj != None):
+                        lineItem = linestr.split(':')
+                        cpu_max_mhz = lineItem[1].strip()
+                        continue
+                    searchObj = re.search('CPU MHz', linestr)
+                    if(searchObj != None):
+                        lineItem = linestr.split(':')
+                        cpu_mhz = lineItem[1].strip()
+                        continue
+                if cpu_max_mhz == "" :
+                   self.cpu_mhz = cpu_mhz
+                else :
+                    self.cpu_mhz = cpu_max_mhz
+                cmd.stdout.close()
+            except:
+                print("Warning: can not determine CPU details", file=sys.stderr)
+                self.cpu_model = "UNKNOWN"
+                cpu_max_mhz = "UNKNOWN"
+                cpu_mhz = "UNKNOWN"
 
             # Get CPU details
-            cmd = subprocess.Popen('lscpu -e 2>/dev/null | tail -1', shell=True, stdout=subprocess.PIPE)
-            for line in cmd.stdout:
-                linestr = line.decode("utf-8").strip()
-                lineItem = linestr.split()
-                self.total_cpu_threads = int(lineItem[0].strip()) + 1
-                self.total_cpu_cores = int(lineItem[3].strip()) + 1
-            cmd.stdout.close()
+            cmd_str = 'lscpu -e 2>/dev/null | tail -1'
+            #cmd = subprocess.Popen('lscpu -e 2>/dev/null | tail -1', shell=True, stdout=subprocess.PIPE)
+            try:
+                cmd = subprocess.Popen(cmd_str, shell=True, stdout=subprocess.PIPE)
+                for line in cmd.stdout:
+                    linestr = line.decode("utf-8").strip()
+                    lineItem = linestr.split()
+                    self.total_cpu_threads = int(lineItem[0].strip()) + 1
+                    self.total_cpu_cores = int(lineItem[3].strip()) + 1
+                cmd.stdout.close()
+            except:
+                print("Error: can not determine CPU core details", file=sys.stderr)
+                valid = False
 
         # Get GPU details
-        #TODO consider using opencl to get valid GPU compute platforms
         if shutil.which("lshw") == None:
-            print("OS Command [lshw] not found")
+            print("OS Command [lshw] not found", file=sys.stderr)
             valid = False
         else:
             gpu_cnt=0
             gpu_str = ""
-            cmd = subprocess.Popen('lshw -short 2>/dev/null | grep display', shell=True, stdout=subprocess.PIPE)
-            for line in cmd.stdout:
-                linestr = line.decode("utf-8").strip()
-                searchObj = re.search('display', linestr)
-                if(searchObj != None):
-                    gpu_cnt += 1
-                    #lineItem = linestr.split('[')
-                    #gpu_str = gpu_str + " [" + lineItem[1]
-                    lineItem = linestr.split('display')
-                    gpu_str = gpu_str + " [" + lineItem[1].strip() + "]"
-                    continue
-            cmd.stdout.close()
-            self.total_gpu_count =  gpu_cnt
-            self.total_gpu_threads =  gpu_cnt
-            for gi in range(0, gpu_cnt):
-                self.gpu_devices[len(self.gpu_devices):] = [gi]
-            self.gpu_str =  gpu_str
+            cmd_str = 'lshw -short 2>/dev/null | grep display'
+            #cmd = subprocess.Popen('lshw -short 2>/dev/null | grep display', shell=True, stdout=subprocess.PIPE)
+            try:
+                cmd = subprocess.Popen(cmd_str, shell=True, stdout=subprocess.PIPE)
+                for line in cmd.stdout:
+                    linestr = line.decode("utf-8").strip()
+                    searchObj = re.search('display', linestr)
+                    if(searchObj != None):
+                        gpu_cnt += 1
+                        lineItem = linestr.split('display')
+                        if len(lineItem) > 1:
+                            gpu_str = gpu_str + " [" + lineItem[1].strip() + "]"
+                        else:
+                            gpu_str = gpu_str + "[UNKNOWN]"
+                        continue
+                cmd.stdout.close()
+                self.total_gpu_count =  gpu_cnt
+                self.total_gpu_threads =  gpu_cnt
+                for gi in range(0, gpu_cnt):
+                    self.gpu_devices[len(self.gpu_devices):] = [gi]
+                self.gpu_str =  gpu_str
+            except:
+                print("Error: can not determine GPU details", file=sys.stderr)
+                valid = False
 
         # Set working directories
         self.current_dir = os.getcwd()
@@ -636,13 +663,18 @@ class BENCH_ENV:
 
 
     def is_boinc_running(self):
-        cmd = subprocess.Popen('ps -C boinc -o pid 2>/dev/null', shell=True, stdout=subprocess.PIPE)
-        output = cmd.stdout.read()
-        cmd.stdout.close()
-        cmd.wait()
-        if output.decode("utf-8").strip() == 'PID':
-            return(False)
-        else:
+        cmd_str = "ps -C boinc -o pid 2>/dev/null"
+        try:
+            cmd = subprocess.Popen(cmd_str, shell=True, stdout=subprocess.PIPE)
+            output = cmd.stdout.read()
+            cmd.stdout.close()
+            cmd.wait()
+            if output.decode("utf-8").strip() == 'PID':
+                return(False)
+            else:
+                return(True)
+        except:
+            print("Warning: can not check if boinc is running", file=sys.stderr)
             return(True)
 
     def suspend_boinc(self):
@@ -653,13 +685,15 @@ class BENCH_ENV:
         os.chdir(mb_const.boinc_home)
         for cmd_str in mb_const.suspend_args:
             cmd_str = mb_const.boinc_home + str(cmd_str)
-            #cmd_str_lst = cmd_str.split(sep=' ', maxsplit=1)
             if mb_const.DEBUG == True: print("Suspend cmd: ", cmd_str)
-            cmd = subprocess.Popen(cmd_str, shell=True, stdout=subprocess.PIPE)
-            while True:
-                if cmd.poll() != None:
-                    break
-                time.sleep(1)
+            try:
+                cmd = subprocess.Popen(shlex.split(cmd_str), shell=False, stdout=subprocess.PIPE)
+                while True:
+                    if cmd.poll() != None:
+                        break
+                    time.sleep(1)
+            except:
+                print("Error: could not execute boinccmd: %s" % cmd_str, file=sys.stderr)
         os.chdir(cwd)
 
     def resume_boinc(self):
@@ -670,13 +704,15 @@ class BENCH_ENV:
         os.chdir(mb_const.boinc_home)
         for cmd_str in mb_const.resume_args:
             cmd_str = mb_const.boinc_home + str(cmd_str)
-            #cmd_str_lst = cmd_str.split(sep=' ', maxsplit=1)
             if mb_const.DEBUG == True: print("Resume cmd: ", cmd_str)
-            cmd = subprocess.Popen(cmd_str, shell=True, stdout=subprocess.PIPE)
-            while True:
-                if cmd.poll() != None:
-                    break
-                time.sleep(1)
+            try:
+                cmd = subprocess.Popen(shlex.split(cmd_str), shell=False, stdout=subprocess.PIPE)
+                while True:
+                    if cmd.poll() != None:
+                        break
+                    time.sleep(1)
+            except:
+                print("Error: could not execute boinccmd: %s" % cmd_str, file=sys.stderr)
         os.chdir(cwd)
         
     def print(self, fileptr=sys.stdout):
@@ -1579,6 +1615,7 @@ def main():
     if cfg_modes.mode_value("std_signals") == True :  env.mode_std_signals = True
     if cfg_modes.mode_value("display_compact") == True :  env.mode_display_compact = True
     if cfg_modes.mode_value("display_slots") == True :  env.mode_display_slots = True
+    if cfg_modes.mode_value("energy") == True :  env.mode_energy = True
     # read user specified GPU device list
     cfg_devmap = {}
     if cfg_modes.mode_value("devmap") != None:
@@ -1588,8 +1625,6 @@ def main():
             for gi in gdev_items:
                 giItems = gi.split(':')
                 cfg_devmap[int(giItems[0])] = int(giItems[1])
-            else:
-                print("CFG devmap: ", cfg_devmap)
         else:
             print("Invalid CFG devmap arg: [", cfg_modes.mode_value("devmap"), "]")
     cfg_gpu_devices = []
@@ -1628,6 +1663,7 @@ def main():
     if args.std_signals == True :  env.mode_std_signals = True
     if args.display_compact == True :  env.mode_display_compact = True
     if args.display_slots == True :  env.mode_display_slots = True
+    if args.energy == True :  env.mode_energy = True
     # read user specified GPU device list
     specified_devmap = {}
     if len(args.devmap) > 0:
@@ -1637,8 +1673,6 @@ def main():
             for gi in gdev_items:
                 giItems = gi.split(':')
                 specified_devmap[int(giItems[0])] = int(giItems[1])
-            else:
-                print("Specified devmap: ", specified_devmap)
         else:
             print("Invalid devmap arg: [", args.devmap, "]")
     specified_gpu_devices = []
@@ -1689,9 +1723,9 @@ def main():
             print("Mismatch with allocated GPUS, reset allocated devices to %d" % len(specified_gpu_devices))
             env.allocated_gthreads = len(specified_gpu_devices)
 
-    if args.energy == True:
-        if len(specified_devmap) != env.total_gpu_threads:
-            print("With Energy mode, a devmap must include all devices - devmap: " + str(specified_devmap) +  " devices: " + str(env.total_gpu_threads))
+    if env.mode_energy == True:
+        if len(env.devmap) != env.total_gpu_threads:
+            print("With Energy mode, a devmap must include all devices - devmap: " + str(env.devmap) +  " devices: " + str(env.total_gpu_threads))
             sys.exit(-1)
 
 

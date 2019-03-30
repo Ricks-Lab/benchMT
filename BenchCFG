@@ -30,24 +30,40 @@
 ##
 #Don't ask confirmation before running jobs
 #mode yes False
+#
 #Specify name of this run
 #mode run_name test
+#
 #Specify path for BOINC
 #mode boinc_home /home/boinc/BOINC/
+#
 #Do not suspend BOINC
 #mode noBS False
+#
 #Display compact run status
 #mode display_compact False
+#
 #Display run status by slots instead of jobs
 #mode display_slots False
+#
 #Specify number of times to run benchmark
 #mode num_repetitions 2
+#
 #Specify max number of threads to load
 #mode max_threads 2
+#
 #Specify max number of GPUs to load
 #mode max_gpus 2
+#
 #Specify GPU devices to use
 #mode gpu_devices 0,1
+#
+#Specify GPU mapping between boinc device # and driver card #, required for energy option
+#mode mode devmap 0:3,1:2,2:1,3:0
+#
+#Specify Energy mode
+#mode mode energy True
+#
 #Use standard signal WUs instead of Test WUs
 #mode std_signals True
 ##
