@@ -35,7 +35,7 @@
  files for each job run. A run name can be specified with the *--run_name* commane line option. This
  name will be included in the name of the testData subdirectory for the current run.
 
-## New in this Release  -  v1.5.0
+## New in this Release Candidate  -  v1.5.0
 * Implemented checks of Python and Kernel version to verify compatibility.
 * Implemented more robust system calls.
 * Fixed an error in parsing lshw output to extract GPU names and added error checking.
