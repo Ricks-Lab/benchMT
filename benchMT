@@ -52,12 +52,12 @@
 """
 __author__ = "RueiKe"
 __copyright__ = "Copyright (C) 2018 RueiKe"
-__credits__ = "Testing: Keith Myers"
+__credits__ = ["Keith Myers - Testing and Verification"]
 __license__ = "GNU General Public License"
 __program_name__ = "benchMT"
 __version__ = "v1.5.0"
 __maintainer__ = "RueiKe"
-__status__ = "Development"
+__status__ = "Release Candidate"
 
 import argparse
 import re

@@ -35,18 +35,31 @@
  files for each job run. A run name can be specified with the *--run_name* commane line option. This
  name will be included in the name of the testData subdirectory for the current run.
 
-## New in this Release  -  [v1.4.0](https://github.com/Ricks-Lab/benchMT/releases/tag/v1.4.0)
+## New in this Release  -  v1.5.0
+* Implemented checks of Python and Kernel version to verify compatibility.
+* Implemented more robust system calls.
+* Fixed an error in parsing lshw output to extract GPU names and added error checking.
+* When specifiying specific GPUs to be used with *--gpu_devices*, max_gpus is now automatically set.
+* Implemented Engergy metric for GPUs using amdgpu drivers.
+
+## Development Plans and Known Limitations
+* Currently, running more than one job at a time on a single GPU is not supported. 
+* Consider an alternative to lshw to get valid GPU compute platforms, since lshw doesn't check for compute capability.
+* Energy reporting feature only implemented for GPUs using amdgpu drivers.  If you know how to ready current power for nVidia GPUs and want to collaborate on implementing this feature, let me know!
+
+## History
+### New in Previous Release  -  v1.4.0
 * Write run_name to the psv file.  Useful when wanting to analyze the data from multiple runs.
 * Include nVidia stock MB app in the distribution.
 * Include error message when job fails to spawn.
 
-## New in Previous Release  -  v1.3.0
+### New in Previous Release  -  v1.3.0
 * SETI MB apps are now run without a shell, using shlex to parse args for the subprocess command.
 * Implemented *--force_ref* option to force generation of reference results, even if they already exist.
 * Implemented job execution with time command. Time relevant data is written to summary and psv files.
 * Added job execution error checking.  Bad exit status will result in updated error fields in summary/psv files and status display.
 
-## New in Previous Release  -  v1.2.0
+### New in Previous Release  -  v1.2.0
 * Fixed a problem with the when lock_file was created and checked.  Now placed before slot initialization.
 * Fixed issue where program would exit if Reference file didn't exist.  Now an error message is printed and no comparison results are printed to summary files.
 * Added commmand line option *--no_ref* which will not create reference results when selected.  This is useful for characterizing potential reference WUs.
@@ -54,7 +67,7 @@
 * Modified so that status display will not show skipped jobs (Reference data already exists).
 * Updated reference WUs in the *WU_test/safe* directory.  Still need a WU with a Gaussian signal.
 
-## New in Previous Release  -  v1.1.0
+### New in Previous Release  -  v1.1.0
 * Command line options can now be specified in mode lines of the BenchCFG file.  Options given on the command line will override modes specified in the CFG file.
 * An alternative CFG file can now be specified as a command line option.
 * Signal counts and Angle Range are now included in the psv and txt summary files.
@@ -63,8 +76,3 @@
 * Added a lock_file in the working directory to prevent a second occurrence of benchMT from using the same directory.
 * Updated reference WUs in the *WU_test/safe* directory.
 * Changed *--ref_signals* option to *--std_signals* for clarity.
-
-## Development Plans and Known Limitations
-* Currently, running more than one job at a time on a single GPU is not supported. 
-* Consider an alternative to lshw to get valid GPU compute platforms, since lshw doesn't check for compute capability.
-
