@@ -20,14 +20,18 @@
  is required, since boinccmd is used. An alternative BenchCFG file can be specified with the
  command line option --cfg_file filename.
 
- All WUs in the WU_test directory will be used in the creation of jobs to be run, unless the 
- --std_signals option is used, in which case, WUs in the WU_std_signal will be used.  The
- APPS_GPU and APPS_CPU can have more apps than are specified to run in the BenchCFG file, but must
- contain apps specified in BenchCFG.  The APPS_REF directory must contain a single CPU reference
- app with a file prefix of "ref-cpu.".  The stock CPU app is suggested, as this is only used to
- test integrity of the results.  Elapsed time analysis is expected to be limited to apps/arg
- combinations specified in BenchCFG.  The generation of reference results can be skipped with the
- --no_ref option or forced with the --force_ref option.
+ All WUs in the WU_test directory will be used in the creation of jobs to be run, unless the
+ *--std_signals* option is used, in which case, WUs in the WU_std_signal will be used.  The
+ APPS_GPU and APPS_CPU directories can have more apps than are specified to run in the BenchCFG
+ file, but must contain apps specified in BenchCFG.  The APPS_REF directory must contain a single
+ CPU reference app with a file prefix of "ref-cpu.".  The stock CPU app is suggested, as this is
+ only used to test integrity of the results.  Elapsed time analysis is expected to be limited to
+ apps/arg combinations specified in BenchCFG.  The generation of reference results can be skipped
+ with the *--no_ref* option or forced with the *--force_ref* option. The *--energy* option can be
+ used if your system has amdgpu drivers with compatible GPUs to give the energy used in running a
+ task.  In order to correctly associate a GPU card number with a BOINC device number, you must
+ specify this with the *--devmap B:C,B2:C2* option.  I know of no reobust way to make this mapping
+ other than manually running each card individually and observing which card is being used.
 
  The results will be stored in a unique subdir of the testData directory. There is an overall run
  log txt file, a psv file useful for importing into an analytics tools, and the .sah and stderr
@@ -57,7 +61,7 @@ __license__ = "GNU General Public License"
 __program_name__ = "benchMT"
 __version__ = "v1.5.0"
 __maintainer__ = "RueiKe"
-__status__ = "Release Candidate"
+__status__ = "Stable Release"
 
 import argparse
 import re
