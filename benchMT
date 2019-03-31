@@ -119,7 +119,7 @@ class CFG_MODES:
                 "gpu_devices" : None,
                 "devmap" : None,
                 "std_signals" : None,
-                "energy" : None,
+                "energy" : None
                 }
         self.type = {
                 "yes" : "Logical",
@@ -134,11 +134,13 @@ class CFG_MODES:
                 "gpu_devices" : "String",
                 "devmap" : "String",
                 "std_signals" : "Logical",
-                "energy" : "Logical",
+                "energy" : "Logical"
                 }
 
     def set_mode(self, mode_name, mode_value):
-        if mode_name in self.modes.keys() == False:
+        if (mode_name in self.modes) == False:
+            return False
+        if (mode_name in self.type) == False:
             return False
 
         if self.type[mode_name] == "Logical":
