@@ -51,7 +51,7 @@
 ## Development Plans and Known Limitations
 * Currently, running more than one job at a time on a single GPU is not supported. 
 * Consider an alternative to lshw to get valid GPU compute platforms, since lshw doesn't check for compute capability.
-* Energy reporting feature only implemented for GPUs using amdgpu drivers.  If you know how to ready current power for nVidia GPUs and want to collaborate on implementing this feature, let me know!
+* Energy reporting feature only implemented for GPUs using amdgpu drivers.  If you know how to read current power for nVidia GPUs and want to collaborate on implementing this feature, let me know!
 
 ## History
 #### New in Previous Release  -  v1.4.0
