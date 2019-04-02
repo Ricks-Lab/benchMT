@@ -98,6 +98,7 @@ class MB_CONST:
         self.suspend_args = ["boinccmd --set_gpu_mode never 172800", "boinccmd --set_run_mode never 172800"]
         self.resume_args = ["boinccmd --set_gpu_mode never 1", "boinccmd --set_run_mode never 1"]
         self.activeWU = "work_unit.sah"
+        self.activeAPWU = "in.dat"
         self.DEBUG = False
 
         # Items required for AMD Energy feature
@@ -301,7 +302,7 @@ class GPU_LIST:
         print(f"Device {device_num} maps to card {card_num}")
 
         for k,v in self.list.items():
-            if mb_const.DEBUG: print(f"Compare v.card_num: {v.card_num} to card_num: {card_num}")
+            #if mb_const.DEBUG: print(f"Compare v.card_num: {v.card_num} to card_num: {card_num}")
             if v.card_num == card_num:
                 if mb_const.DEBUG: print(f"Device {device_num} maps to card {v.card_num}")
                 return(v)
@@ -1910,6 +1911,9 @@ def main():
                     #Copy WU to slot
                     shutil.copy2(slots.list[slot_num].job.wu_path + slots.list[slot_num].job.wu_name,
                             slots.list[slot_num].slot_dir +"/" + mb_const.activeWU)
+                    #Also copy using AP name, just in case the app is AP
+                    shutil.copy2(slots.list[slot_num].job.wu_path + slots.list[slot_num].job.wu_name,
+                            slots.list[slot_num].slot_dir +"/" + mb_const.activeAPWU)
 
                     #Construct app/arg list 
                     if plat == "GPU":
@@ -1924,7 +1928,10 @@ def main():
 
                     # execute job with time command
                     cmd_str = '/usr/bin/time -f \"Real=%e|User=%U|System=%S|MaxMem=%M|SwapNum=%W|CtxSwt=%c|MajPF=%F\" ' + cmd_str
-                    if mb_const.DEBUG == True: print("Final command: "+ cmd_str)
+                    if mb_const.DEBUG == True:
+                        print("\n\nRun Details")
+                        print("Final command: "+ cmd_str)
+                        print("Execution directory: "+ slots.list[slot_num].slot_dir)
 
                     #cd to slot dir and execute app with args
                     os.chdir(slots.list[slot_num].slot_dir)
