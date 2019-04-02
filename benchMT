@@ -175,6 +175,10 @@ class CFG_MODES:
             return False
         return(self.modes[mode_name])
 
+    def print(self):
+        for m,v in self.modes.items():
+            print("CFG_mode: %s %s" %(m, str(v)))
+
 class GPU_ITEM:
     def __init__(self, item_id):
         self.uuid = item_id
@@ -760,6 +764,13 @@ class BENCH_ENV:
         print("Repetitions: ", self.repetitions, file=fileptr)
         print("Allocated CPU Threads: ", self.allocated_cthreads, file=fileptr)
         print("Allocated GPU Threads: ", self.allocated_gthreads, file=fileptr)
+        #Print Modes
+        print("Mode %s: %s" %("std_signals", self.mode_std_signals), file=fileptr)
+        print("Mode %s: %s" %("display_slots", self.mode_display_slots), file=fileptr)
+        print("Mode %s: %s" %("display_compact", self.mode_display_compact), file=fileptr)
+        print("Mode %s: %s" %("no_ref", self.mode_no_ref), file=fileptr)
+        print("Mode %s: %s" %("force_ref", self.mode_force_ref), file=fileptr)
+        print("Mode %s: %s" %("energy", self.mode_energy), file=fileptr)
 
 
 
@@ -1748,7 +1759,7 @@ def main():
             print("With Energy mode, a devmap must include all devices - devmap: " + str(env.devmap) +  " devices: " + str(env.total_gpu_threads))
             sys.exit(-1)
 
-    if env.no_ref == True and env.force_ref == True:
+    if env.mode_no_ref == True and env.mode_force_ref == True:
         print("ERROR: --no_ref and --force_ref are mutually exclusive.  Exiting...")
         sys.exit(-1)
 
@@ -1777,7 +1788,7 @@ def main():
             reflist.create_ref_list(ref_app, wulist, env)
             #reflist.print(title="Reference Job List")
         os.chdir(cwd)
-        if env.force_ref :
+        if env.mode_force_ref :
             print("Forcing Reference Results Generation")
         else:
             reflist.check_ref_results(env)
