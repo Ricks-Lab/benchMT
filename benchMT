@@ -123,6 +123,8 @@ class CFG_MODES:
                 "gpu_devices" : None,
                 "devmap" : None,
                 "std_signals" : None,
+                "no_ref" : None,
+                "force_ref" : None,
                 "energy" : None
                 }
         self.type = {
@@ -138,6 +140,8 @@ class CFG_MODES:
                 "gpu_devices" : "String",
                 "devmap" : "String",
                 "std_signals" : "Logical",
+                "no_ref" : "Logical",
+                "force_ref" : "Logical",
                 "energy" : "Logical"
                 }
 
@@ -346,6 +350,7 @@ class BENCH_ENV:
         self.mode_display_slots = False
         self.mode_display_compact = False
         self.mode_no_ref = False
+        self.mode_force_ref = False
         self.mode_energy = False
 
     def check_env(self):
@@ -1623,6 +1628,8 @@ def main():
                 env.run_name = cfg_modes.mode_value("run_name").replace(' ','')
                 env.run_name = env.run_name.replace('/','')
                 env.run_name = env.run_name.replace('\\','')
+    if cfg_modes.mode_value("force_ref") == True :  env.mode_force_ref = True
+    if cfg_modes.mode_value("no_ref") == True :  env.mode_no_ref = True
     if cfg_modes.mode_value("std_signals") == True :  env.mode_std_signals = True
     if cfg_modes.mode_value("display_compact") == True :  env.mode_display_compact = True
     if cfg_modes.mode_value("display_slots") == True :  env.mode_display_slots = True
@@ -1671,6 +1678,8 @@ def main():
             env.run_name = args.run_name.replace(' ','')
             env.run_name = env.run_name.replace('/','')
             env.run_name = env.run_name.replace('\\','')
+    if args.force_ref == True :  env.mode_force_ref = True
+    if args.no_ref == True :  env.mode_no_ref = True
     if args.std_signals == True :  env.mode_std_signals = True
     if args.display_compact == True :  env.mode_display_compact = True
     if args.display_slots == True :  env.mode_display_slots = True
@@ -1739,6 +1748,10 @@ def main():
             print("With Energy mode, a devmap must include all devices - devmap: " + str(env.devmap) +  " devices: " + str(env.total_gpu_threads))
             sys.exit(-1)
 
+    if env.no_ref == True and env.force_ref == True:
+        print("ERROR: --no_ref and --force_ref are mutually exclusive.  Exiting...")
+        sys.exit(-1)
+
 
     env.print()
 
@@ -1764,7 +1777,7 @@ def main():
             reflist.create_ref_list(ref_app, wulist, env)
             #reflist.print(title="Reference Job List")
         os.chdir(cwd)
-        if args.force_ref :
+        if env.force_ref :
             print("Forcing Reference Results Generation")
         else:
             reflist.check_ref_results(env)

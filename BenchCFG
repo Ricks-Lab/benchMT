@@ -66,6 +66,12 @@
 #
 #Use standard signal WUs instead of Test WUs
 #mode std_signals True
+#
+#Do not generate reference results, even if missing
+#mode no_ref False
+#
+#Force generate reference results, even if exists
+#mode force_ref False
 ##
 ##
 ##############################################################################
