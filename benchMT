@@ -661,7 +661,8 @@ class BENCH_ENV:
                 self.total_gpu_count =  gpu_cnt
                 self.total_gpu_threads =  gpu_cnt
                 for gi in range(0, gpu_cnt):
-                    self.total_gpu_devices[len(self.total_gpu_devices):] = [gi]
+                    #self.total_gpu_devices[len(self.total_gpu_devices):] = [gi]
+                    self.total_gpu_devices.append(int(gi))
                 self.gpu_str =  gpu_str
             except:
                 print("Error: can not determine GPU details", file=sys.stderr)
@@ -1334,9 +1335,15 @@ class JOB_LIST:
                             #copy result and stderr files to testData
                             cur_result_file = env.summary_path + "/result." + v.app_name + "." + v.wu_name + "." + v.uuid + ".sah"
                             if(os.path.isfile(v.slot_dir + "/result.sah") == True): 
+                                # copy over MB data
                                 shutil.copy2(v.slot_dir + "/result.sah", cur_result_file)
                                 os.remove(v.slot_dir + "/result.sah")
                                 if mb_const.DEBUG == True: print("Copy2: " + v.slot_dir + "/results.sah", cur_result_file)
+                            elif(os.path.isfile(v.slot_dir + "/work_unit.sah") == True): 
+                                # copy over astropulse data
+                                shutil.copy2(v.slot_dir + "/work_unit.sah", cur_result_file)
+                                os.remove(v.slot_dir + "/work_unit.sah")
+                                if mb_const.DEBUG == True: print("Copy2: " + v.slot_dir + "/work_unit.sah", cur_result_file)
                             else:
                                 v.error = v.error + "[No results.sah file]"
                             cur_stderr_file = env.summary_path + "/stderr." + v.app_name + "." + v.wu_name + "." + v.uuid  + ".txt"
