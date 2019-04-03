@@ -59,9 +59,9 @@ __copyright__ = "Copyright (C) 2018 RueiKe"
 __credits__ = ["Keith Myers - Testing and Verification"]
 __license__ = "GNU General Public License"
 __program_name__ = "benchMT"
-__version__ = "v1.5.0"
+__version__ = "v1.6.0"
 __maintainer__ = "RueiKe"
-__status__ = "Stable Release"
+__status__ = "Development"
 
 import argparse
 import re
@@ -467,7 +467,7 @@ class BENCH_ENV:
                 print("CFG: Invalid number of repetitions specified ["+ str(cfg_modes.mode_value("num_repetitions")) + "].  Ignoring...")
         else:
             print("Invalid number of repetitions specified ["+ str(args.num_repetitions) + "].  Ignoring...")
-        print("Final repetitions specified ["+ str(self.repetitions) + "].")
+        #print("Final repetitions specified ["+ str(self.repetitions) + "].")
     
         # mode_max_threads
         if args.max_threads > 0: self.specified_max_threads = args.max_threads
@@ -1008,7 +1008,7 @@ class JOB_LIST:
                 job.app_args = argstr
             else:
                 job.app_args = ""
-            print(env.cpu_app_path + job.app_name)
+            #print(env.cpu_app_path + job.app_name)
             if(os.path.isfile(env.cpu_app_path + job.app_name) == True): 
                 job.platform = "CPU"
             elif(os.path.isfile(env.gpu_app_path + job.app_name) == True): 
@@ -1025,7 +1025,7 @@ class JOB_LIST:
             wu_path=env.wu_std_signal_path
         else :
             wu_path=env.wu_path
-        print("wu_path: ", wu_path)
+        #print("wu_path: ", wu_path)
         filelist = os.listdir(path=wu_path)
         for line in filelist:
             line = line.strip()
@@ -1718,6 +1718,14 @@ def main():
         print("Error in environment. Exiting...")
         sys.exit(-1)
 
+    # Run set_env in order to populate numbers of GPUS/CPU threads
+    if(env.set_env() == False): 
+        if args.admin_mkdirs == True :
+            env.makedirs()
+            sys.exit(0)
+        print("Error in environment.  Exiting...")
+        sys.exit(-1)
+
     # Check existence of Configuration File
     if len(args.cfg_file) > 0 :
         if args.cfg_file != "BenchCFG" :
@@ -1728,14 +1736,6 @@ def main():
                 print("Specified BenchCFG [", test_command_line_file,"] doesn't exist")
                 sys.exit(-1)
 
-    # Run set_env in order to populate numbers of GPUS/CPU threads
-    if(env.set_env() == False): 
-        if args.admin_mkdirs == True :
-            env.makedirs()
-            sys.exit(0)
-        print("Error in environment.  Exiting...")
-        sys.exit(-1)
-
     # Read BenchCFG file and create list of provided apps and aguments.
     # Determine of the apps are GPU or CPU by checking which APP_DIR they are located in
     cfg_modes = CFG_MODES()
@@ -1743,8 +1743,10 @@ def main():
     applist.read_benchcfg(env, cfg_modes)
     if mb_const.DEBUG == True: applist.print(title="Initial app list")
 
+
     # set modes with CFG file mode statements
     env.process_options(args, cfg_modes)
+    if mb_const.DEBUG == True: cfg_modes.print()
 
     if env.mode_energy == True:
         if len(env.devmap) != env.total_gpu_threads:
