@@ -430,19 +430,21 @@ class BENCH_ENV:
     
         # mode_devmap
         specified_devmap = {}
+        self.devmap = {}
         devmap_str = ""
         if len(args.devmap) > 0:
             devmap_str = args.devmap
         elif cfg_modes.mode_value("devmap") != None:
             devmap_str = cfg_modes.mode_value("devmap")
-        if re.fullmatch('([0-9]:[0-9],)*([0-9]:[0-9])+', devmap_str):
-            gdev_items = devmap_str.split(',')
-            for gi in gdev_items:
-                giItems = gi.split(':')
-                specified_devmap[int(giItems[0])] = int(giItems[1])
-        else:
-            print("Invalid devmap arg: [", devmap_str, "]")
-        self.devmap = specified_devmap
+        if len(devmap_str) > 0:
+            if re.fullmatch('([0-9]:[0-9],)*([0-9]:[0-9])+', devmap_str):
+                gdev_items = devmap_str.split(',')
+                for gi in gdev_items:
+                    giItems = gi.split(':')
+                    specified_devmap[int(giItems[0])] = int(giItems[1])
+                self.devmap = specified_devmap
+            else:
+                print("Invalid devmap arg: [", devmap_str, "]")
 
         # mode_gpu_devices
         self.mode_gpu_devices = []
@@ -451,12 +453,13 @@ class BENCH_ENV:
             gpu_devices_str = args.gpu_devices
         elif cfg_modes.mode_value("gpu_devices") != None:
             gpu_devices_str = cfg_modes.mode_value("gpu_devices")
-        if re.fullmatch('([0-9],)*([0-9])+', gpu_devices_str):
-            gdev_items = gpu_devices_str.split(',')
-            for gi in gdev_items:
-                self.mode_gpu_devices.append(int(gi))
-        else:
-            print("Invalid gpu_devices arg: [", gpu_devices_str, "]")
+        if len(gpu_devices_str) > 0:
+            if re.fullmatch('([0-9],)*([0-9])+', gpu_devices_str):
+                gdev_items = gpu_devices_str.split(',')
+                for gi in gdev_items:
+                    self.mode_gpu_devices.append(int(gi))
+            else:
+                print("Invalid gpu_devices arg: [", gpu_devices_str, "]")
     
         # mode_num_repetitions
         if args.num_repetitions > 1: self.repetitions = args.num_repetitions
@@ -465,8 +468,8 @@ class BENCH_ENV:
                 self.repetitions = cfg_modes.mode_value("num_repetitions")
             else:
                 print("CFG: Invalid number of repetitions specified ["+ str(cfg_modes.mode_value("num_repetitions")) + "].  Ignoring...")
-        else:
-            print("Invalid number of repetitions specified ["+ str(args.num_repetitions) + "].  Ignoring...")
+        #else:
+            #print("Invalid number of repetitions specified ["+ str(args.num_repetitions) + "].  Ignoring...")
         #print("Final repetitions specified ["+ str(self.repetitions) + "].")
     
         # mode_max_threads
@@ -1796,11 +1799,11 @@ def main():
         sys.exit(-1)
 
     # Check if Energy metric is possible
+    gpu_list = GPU_LIST()
+    gpu_list.set_gpu_list()
+    gpu_list.devmap = env.devmap
     if args.energy == True:
         if env.check_amdgpu() == True:
-            gpu_list = GPU_LIST()
-            gpu_list.set_gpu_list()
-            gpu_list.devmap = env.devmap
             print("GPU Energy metrics enabled")
             env.mode_energy = True
             gpu_list.set_gpu_list()
@@ -1911,7 +1914,7 @@ def main():
     env.psv_file_ptr = open(env.psv_file, 'w', 1)
     print(__program_name__ + " " +  __version__ +  " \u2015 SETI MB Benchmarking Utility \u2015 Linux edition\n",
             file=env.sum_file_ptr)
-    if env.noBS == False:
+    if env.mode_noBS == False:
         print("Suspending BOINC\n", file=env.sum_file_ptr)
         env.suspend_boinc()
     print("System Details", file=env.sum_file_ptr)
@@ -2047,7 +2050,7 @@ def main():
     joblist.psv_print(env, fileptr=env.psv_file_ptr)
 
     os.chdir(env.current_dir)
-    if env.noBS == False:
+    if env.mode_noBS == False:
         print("Resuming BOINC", file=env.sum_file_ptr)
         env.resume_boinc()
 
