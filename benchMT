@@ -375,8 +375,6 @@ class BENCH_ENV:
         self.boinc_home = mb_const.boinc_home
 
     def process_options(self, args, cfg_modes):
-        self.specified_max_threads = -1
-        self.specified_max_gpus = -1
 
         # mode_yes
         if args.yes == True:  self.mode_yes = True
@@ -462,23 +460,26 @@ class BENCH_ENV:
                 print("Invalid gpu_devices arg: [", gpu_devices_str, "]")
     
         # mode_num_repetitions
-        if args.num_repetitions > 1: self.repetitions = args.num_repetitions
+        if args.num_repetitions > 0: self.repetitions = args.num_repetitions
         elif cfg_modes.mode_value("num_repetitions") != None : 
             if int(cfg_modes.mode_value("num_repetitions")) > 0 : 
                 self.repetitions = cfg_modes.mode_value("num_repetitions")
             else:
                 print("CFG: Invalid number of repetitions specified ["+ str(cfg_modes.mode_value("num_repetitions")) + "].  Ignoring...")
-        #else:
+        else:
+            self.repetitions = 1
             #print("Invalid number of repetitions specified ["+ str(args.num_repetitions) + "].  Ignoring...")
         #print("Final repetitions specified ["+ str(self.repetitions) + "].")
     
         # mode_max_threads
+        self.specified_max_threads = -1
         if args.max_threads > 0: self.specified_max_threads = args.max_threads
         elif cfg_modes.mode_value("max_threads") != None : 
             if cfg_modes.mode_value("max_threads") > 0 : 
                 self.specified_max_threads = cfg_modes.mode_value("max_threads")
     
         # mode_max_gpus
+        self.specified_max_gpus = -1
         if args.max_gpus > 0: self.specified_max_gpus = args.max_gpus
         elif cfg_modes.mode_value("max_gpus") != None : 
             if cfg_modes.mode_value("max_gpus") > 0 : 
@@ -1688,7 +1689,7 @@ def main():
     parser.add_argument("--noBS", help="Do not suspend BOINC", action="store_true", default=False)
     parser.add_argument("--display_compact", help="Display compact run status", action="store_true", default=False)
     parser.add_argument("--display_slots", help="Display run status by slots instead of jobs", action="store_true", default=False)
-    parser.add_argument("--num_repetitions", help="Specify number of times to run benchmark", type=int, default=1)
+    parser.add_argument("--num_repetitions", help="Specify number of times to run benchmark", type=int, default=0)
     parser.add_argument("--max_threads", help="Specify max number of threads to load", type=int, default=0)
     parser.add_argument("--max_gpus", help="Specify max number of GPUs to load", type=int, default=0)
     parser.add_argument("--gpu_devices", help="Specify which GPUs to use: 0,1,2", type=str, default="")
