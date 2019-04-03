@@ -1739,18 +1739,18 @@ def main():
                 print("Specified BenchCFG [", test_command_line_file,"] doesn't exist")
                 sys.exit(-1)
 
-    # Read BenchCFG file and create list of provided apps and aguments.
-    # Determine of the apps are GPU or CPU by checking which APP_DIR they are located in
+    # Read BenchCFG file and create list of provided apps and arguments.
+    # Determine if the apps are GPU or CPU by checking which APP_DIR they are located in
     cfg_modes = CFG_MODES()
     applist = JOB_LIST()
     applist.read_benchcfg(env, cfg_modes)
     if mb_const.DEBUG == True: applist.print(title="Initial app list")
 
-
-    # set modes with CFG file mode statements
+    # Set options with CFG file mode statements and command line args
     env.process_options(args, cfg_modes)
     if mb_const.DEBUG == True: cfg_modes.print()
 
+    # If energy reporting option is set, verify that device mapping is also set
     if env.mode_energy == True:
         if len(env.devmap) != env.total_gpu_threads:
             print("With Energy mode, a devmap must include all devices - devmap: " + str(env.devmap) +  " devices: " + str(env.total_gpu_threads))
@@ -1791,7 +1791,6 @@ def main():
         env.allocated_gthreads = len(env.gpu_devices)
     else:
         print("Specified more GPUS [%d], than allocated [%d]" % (len(env.gpu_devices), env.allocated_gthreads))
-    # end setting up the environment
 
     # Run set_env_boinc in order to set boinc environment
     if(env.set_env_boinc() == False): 
@@ -1812,6 +1811,7 @@ def main():
             print("GPU Energy metrics not possible, disabling them.")
             env.mode_energy = False
 
+    # Print the final view of the execution environment
     env.print()
 
     # Create a list of WUs to be processed
@@ -1874,7 +1874,7 @@ def main():
     print("For " + str(num_cpu_jobs) + " CPU jobs and " + str(env.allocated_gthreads) +
                 " GPU slots. Allocated Threads reduced to " + str(env.allocated_cthreads))
 
-    # check if there is already and instance running in this directory
+    # Check if there is already and instance running in this directory
     if env.is_bench_conflict() :
         print("Another instance of benchMT is running in this directory, exiting...")
         sys.exit(-1)
@@ -1893,15 +1893,14 @@ def main():
     if env.mode_yes == False :
         if input("Execute listed jobs? [y/N]").lower() != 'y': sys.exit(1)
 
-
     if mb_const.DEBUG == False: os.system('clear')
     if env.mode_display_slots == True:
         slots.print_activity(joblist, env.mode_display_compact)
     else:
         joblist.print(env.mode_display_compact)
 
-    #Make testData subdirectory for this run and open summary file for writing
-    # update summary_path in case the run name was set
+    # Make testData subdirectory for this run and open summary file for writing
+    # Update summary_path in case the run name was set
     env.summary_path = os.path.join(env.testdata_path, (env.hostname + "_benchMT_" + env.run_name + "_" + env.time_now_short +"/"))
     env.summary_file = env.summary_path + env.hostname + ".testlog." + env.run_name + "_" + env.time_now_short + ".txt"
     env.psv_file = env.summary_path +  env.hostname + ".timelog." + env.run_name + "_" + env.time_now_short + ".psv"
@@ -1925,7 +1924,7 @@ def main():
     wulist.print_wu_names(fileptr=env.sum_file_ptr)
     print("", file=env.sum_file_ptr)
 
-    #Loop to run all of the jobs
+    # Loop to run all of the jobs
     if num_pending_pjobs["REF"] > 0 :
         platform_list = ["REF"]
     else:
