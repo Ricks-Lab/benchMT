@@ -191,6 +191,7 @@ class GPU_ITEM:
         self.hwmon_path = ""
         self.pcie_id = ""
         self.driver = ""
+        self.compatible = True
         self.amdgpu_compatible = False
         time_0 = datetime.utcnow()
         self.energy = {"t0": time_0, "tn": time_0, "cummulative": 0.0}
@@ -246,6 +247,7 @@ class GPU_LIST:
             lspci_items = subprocess.check_output("lspci -k -s " + pcie_id, shell=True).decode().split("\n")
 
             #Get Long GPU Name
+            gpu_name = ""
             #Line 0 name
             gpu_name_0 = ""
             gpu_name_items = lspci_items[0].split('[AMD/ATI]')
@@ -260,10 +262,19 @@ class GPU_LIST:
                 gpu_name_1 = "UNKNOWN"
             else:
                 gpu_name_1 = gpu_name_items[1]
-            if len(gpu_name_0) > len(gpu_name_1):
-                gpu_name = gpu_name_0
-            else:
-                gpu_name = gpu_name_1
+
+            #Check for Fiji ProDuo
+            searchObj = re.search('Fiji', gpu_name_0)
+            if(searchObj != None):
+                searchObj = re.search('Radeon Pro Duo', gpu_name_1)
+                if(searchObj != None):
+                    gpu_name = "Radeon Fiji Pro Duo"
+
+            if len(gpu_name) == 0:
+                if len(gpu_name_0) > len(gpu_name_1):
+                    gpu_name = gpu_name_0
+                else:
+                    gpu_name = gpu_name_1
 
             #Get Driver Name
             driver_module_items = lspci_items[2].split(':')
@@ -284,6 +295,7 @@ class GPU_LIST:
                 if pcie_id == sysfspath[-7:]:
                     for k, v in self.list.items():
                         if v.card_path == device_dir + '/':
+                            if gpu_name == "Radeon Fiji Pro Duo": v.compatible = False
                             v.pcie_id = pcie_id
                             v.driver = driver_module
                             v.model = gpu_name
@@ -326,8 +338,8 @@ class BENCH_ENV:
         self.total_gpu_count = 0
         self.allocated_cthreads = 0
         self.allocated_gthreads = 0
+        self.total_gpu_devices = []
         self.gpu_devices = []
-        self.devmap = {}
         self.gpu_str = ""
         self.current_dir = ""
         self.cpu_app_path = ""
@@ -339,7 +351,6 @@ class BENCH_ENV:
         self.testdata_path = ""
         self.slots_path = ""
         self.command_line_file = ""
-        self.boinc_home = ""
         self.boinccmd = ""
         self.wucmpcmd = ""
         self.repetitions = 1
@@ -351,12 +362,124 @@ class BENCH_ENV:
         self.psv_file_ptr = None
         self.workdir_path = ""
         self.lockfile = ""
+        self.mode_devmap = {}
+        self.mode_gpu_devices = []
         self.mode_std_signals = False
         self.mode_display_slots = False
         self.mode_display_compact = False
         self.mode_no_ref = False
         self.mode_force_ref = False
         self.mode_energy = False
+        self.mode_yes = False
+        self.mode_noBS = False
+        self.boinc_home = mb_const.boinc_home
+
+    def process_options(self, args, cfg_modes):
+        self.specified_max_threads = -1
+        self.specified_max_gpus = -1
+
+        # mode_yes
+        if args.yes == True:  self.mode_yes = True
+        elif cfg_modes.mode_value("yes") == True:  self.mode_yes = True
+
+        # mode_force_ref
+        if args.force_ref == True:  self.mode_force_ref = True
+        elif cfg_modes.mode_value("force_ref") == True:  self.mode_force_ref = True
+    
+        # mode_no_ref
+        if args.no_ref == True:  self.mode_no_ref = True
+        elif cfg_modes.mode_value("no_ref") == True :  self.mode_no_ref = True
+    
+        if self.mode_no_ref == True and self.mode_force_ref == True:
+            print("ERROR: --no_ref and --force_ref are mutually exclusive.  Exiting...")
+            sys.exit(-1)
+    
+        # mode_noBS
+        if args.noBS == True:  self.mode_noBS = True
+        elif cfg_modes.mode_value("noBS") == True :  self.mode_noBS = True
+    
+        # mode_std_signals
+        if args.std_signals == True:  self.mode_std_signals = True
+        elif cfg_modes.mode_value("std_signals") == True :  self.mode_std_signals = True
+    
+        # mode_display_compact
+        if args.display_compact == True:  self.mode_display_compact = True
+        elif cfg_modes.mode_value("display_compact") == True:  self.mode_display_compact = True
+    
+        # mode_display_slots
+        if args.display_slots == True:  self.mode_display_slots = True
+        elif cfg_modes.mode_value("display_slots") == True:  self.mode_display_slots = True
+    
+        # mode_energy
+        if args.energy == True:  self.mode_energy = True
+        elif cfg_modes.mode_value("energy") == True:  self.mode_energy = True
+    
+        # mode_boinc_home
+        if len(args.boinc_home) > 0 and args.boinc_home.isprintable():
+                self.boinc_home = args.boinc_home
+        elif cfg_modes.mode_value("boinc_home") != None:
+            if len(cfg_modes.mode_value("boinc_home")) > 0 and cfg_modes.mode_value("boinc_home").isprintable():
+                    self.boinc_home = cfg_modes.mode_value("boinc_home")
+    
+        # mode_run_name
+        if len(args.run_name) > 0 and args.run_name.isprintable():
+                self.run_name = args.run_name.replace(' ','').replace('/','').replace('\\','')
+        elif cfg_modes.mode_value("run_name") != None:
+            if len(cfg_modes.mode_value("run_name")) > 0 and cfg_modes.mode_value("run_name").isprintable():
+                    self.run_name = cfg_modes.mode_value("run_name").replace(' ','').replace('/','').replace('\\','')
+    
+        # mode_devmap
+        specified_devmap = {}
+        devmap_str = ""
+        if len(args.devmap) > 0:
+            devmap_str = args.devmap
+        elif cfg_modes.mode_value("devmap") != None:
+            devmap_str = cfg_modes.mode_value("devmap")
+        if re.fullmatch('([0-9]:[0-9],)*([0-9]:[0-9])+', devmap_str):
+            gdev_items = devmap_str.split(',')
+            for gi in gdev_items:
+                giItems = gi.split(':')
+                specified_devmap[int(giItems[0])] = int(giItems[1])
+        else:
+            print("Invalid devmap arg: [", devmap_str, "]")
+        self.devmap = specified_devmap
+
+        # mode_gpu_devices
+        self.mode_gpu_devices = []
+        gpu_devices_str = ""
+        if len(args.gpu_devices) > 0:
+            gpu_devices_str = args.gpu_devices
+        elif cfg_modes.mode_value("gpu_devices") != None:
+            gpu_devices_str = cfg_modes.mode_value("gpu_devices")
+        if re.fullmatch('([0-9],)*([0-9])+', gpu_devices_str):
+            gdev_items = gpu_devices_str.split(',')
+            for gi in gdev_items:
+                self.mode_gpu_devices.append(int(gi))
+        else:
+            print("Invalid gpu_devices arg: [", gpu_devices_str, "]")
+    
+        # mode_num_repetitions
+        if args.num_repetitions > 1: self.repetitions = args.num_repetitions
+        elif cfg_modes.mode_value("num_repetitions") != None : 
+            if int(cfg_modes.mode_value("num_repetitions")) > 0 : 
+                self.repetitions = cfg_modes.mode_value("num_repetitions")
+            else:
+                print("CFG: Invalid number of repetitions specified ["+ str(cfg_modes.mode_value("num_repetitions")) + "].  Ignoring...")
+        else:
+            print("Invalid number of repetitions specified ["+ str(args.num_repetitions) + "].  Ignoring...")
+        print("Final repetitions specified ["+ str(self.repetitions) + "].")
+    
+        # mode_max_threads
+        if args.max_threads > 0: self.specified_max_threads = args.max_threads
+        elif cfg_modes.mode_value("max_threads") != None : 
+            if cfg_modes.mode_value("max_threads") > 0 : 
+                self.specified_max_threads = cfg_modes.mode_value("max_threads")
+    
+        # mode_max_gpus
+        if args.max_gpus > 0: self.specified_max_gpus = args.max_gpus
+        elif cfg_modes.mode_value("max_gpus") != None : 
+            if cfg_modes.mode_value("max_gpus") > 0 : 
+                self.specified_max_gpus = cfg_modes.mode_value("max_gpus")
 
     def check_env(self):
         # Check python version
@@ -465,7 +588,6 @@ class BENCH_ENV:
         else:
             cpu_max_mhz = ""
             cmd_str = "lscpu 2>/dev/null"
-            #cmd = subprocess.Popen('lscpu 2>/dev/null', shell=True, stdout=subprocess.PIPE)
             try:
                 cmd = subprocess.Popen(cmd_str, shell=True, stdout=subprocess.PIPE)
                 for line in cmd.stdout:
@@ -498,7 +620,6 @@ class BENCH_ENV:
 
             # Get CPU details
             cmd_str = 'lscpu -e 2>/dev/null | tail -1'
-            #cmd = subprocess.Popen('lscpu -e 2>/dev/null | tail -1', shell=True, stdout=subprocess.PIPE)
             try:
                 cmd = subprocess.Popen(cmd_str, shell=True, stdout=subprocess.PIPE)
                 for line in cmd.stdout:
@@ -519,7 +640,6 @@ class BENCH_ENV:
             gpu_cnt=0
             gpu_str = ""
             cmd_str = 'lshw -short 2>/dev/null | grep display'
-            #cmd = subprocess.Popen('lshw -short 2>/dev/null | grep display', shell=True, stdout=subprocess.PIPE)
             try:
                 cmd = subprocess.Popen(cmd_str, shell=True, stdout=subprocess.PIPE)
                 for line in cmd.stdout:
@@ -537,7 +657,7 @@ class BENCH_ENV:
                 self.total_gpu_count =  gpu_cnt
                 self.total_gpu_threads =  gpu_cnt
                 for gi in range(0, gpu_cnt):
-                    self.gpu_devices[len(self.gpu_devices):] = [gi]
+                    self.total_gpu_devices[len(self.total_gpu_devices):] = [gi]
                 self.gpu_str =  gpu_str
             except:
                 print("Error: can not determine GPU details", file=sys.stderr)
@@ -545,7 +665,6 @@ class BENCH_ENV:
 
         # Set working directories
         self.current_dir = os.getcwd() + "/"
-        self.boinc_home = mb_const.boinc_home 
         self.workdir_path = os.path.join(self.current_dir, mb_const.workdir_subdir)
         self.cpu_app_path = os.path.join(self.current_dir, mb_const.cpu_app_subdir)
         self.gpu_app_path = os.path.join(self.current_dir, mb_const.gpu_app_subdir)
@@ -593,21 +712,25 @@ class BENCH_ENV:
         if(os.path.isdir(self.wu_std_signal_path) == False): 
             print("STD SIGNAL WU Path [", self.wu_std_signal_path,"] doesn't exist")
             valid = False
+        # Set CFG file location
+        self.command_line_file = os.path.join(self.current_dir, mb_const.command_line_filename)
+        if(os.path.isfile(self.command_line_file) == False): 
+            print("BenchCFG [", self.command_line_file,"] does not exist.")
+            valid = False
+        return(valid)
+
+    def set_env_boinc(self):
+        valid = True
         if(os.path.isdir(self.boinc_home) == False): 
             print("BOINC Home Path [", self.boinc_home,"] doesn't exist")
             print("Please set the correct BOINC Home Path with the --boinc_home command line option")
             valid = False
 
-        # Set file locations
-        self.command_line_file = self.current_dir + "/" + mb_const.command_line_filename
-        if(os.path.isfile(self.command_line_file) == False): 
-            print("BenchCFG [", self.command_line_file,"] doesn't exist")
-            valid = False
-        self.wucmpcmd = self.current_dir + "/" + mb_const.wu_cmp
+        self.wucmpcmd = os.path.join(self.current_dir, mb_const.wu_cmp)
         if(os.path.isfile(self.wucmpcmd) == False): 
             print("Results Compare Utility [", self.wucmpcmd,"] doesn't exist")
             valid = False
-        self.boinccmd = self.boinc_home + "/" + mb_const.boinccmd
+        self.boinccmd = os.path.join(self.boinc_home, mb_const.boinccmd)
         if(os.path.isfile(self.boinccmd) == False): 
             print("boinccmd [", self.boinccmd,"] doesn't exist")
             valid = False
@@ -700,9 +823,9 @@ class BENCH_ENV:
             print("boinc is not running, skip suspend")
             return
         cwd = os.getcwd()
-        os.chdir(mb_const.boinc_home)
+        os.chdir(self.boinc_home)
         for cmd_str in mb_const.suspend_args:
-            cmd_str = mb_const.boinc_home + str(cmd_str)
+            cmd_str = self.boinc_home + str(cmd_str)
             if mb_const.DEBUG == True: print("Suspend cmd: ", cmd_str)
             try:
                 cmd = subprocess.Popen(shlex.split(cmd_str), shell=False, stdout=subprocess.PIPE)
@@ -719,9 +842,9 @@ class BENCH_ENV:
             print("boinc is not running, skip resume")
             return
         cwd = os.getcwd()
-        os.chdir(mb_const.boinc_home)
+        os.chdir(self.boinc_home)
         for cmd_str in mb_const.resume_args:
-            cmd_str = mb_const.boinc_home + str(cmd_str)
+            cmd_str = self.boinc_home + str(cmd_str)
             if mb_const.DEBUG == True: print("Resume cmd: ", cmd_str)
             try:
                 cmd = subprocess.Popen(shlex.split(cmd_str), shell=False, stdout=subprocess.PIPE)
@@ -747,7 +870,8 @@ class BENCH_ENV:
         print("CPU Threads: ", self.total_cpu_threads, file=fileptr)
         print("GPU Count: ", self.total_gpu_count, file=fileptr)
         print("GPU Threads: ", self.total_gpu_threads, file=fileptr)
-        print("GPU Devices: ", str(self.gpu_devices), file=fileptr)
+        print("Total GPU Devices: ", str(self.total_gpu_devices), file=fileptr)
+        print("Specified GPU Devices: ", str(self.gpu_devices), file=fileptr)
         print("Devices Map: ", str(self.devmap), file=fileptr)
         print("GPU Details: ", self.gpu_str, file=fileptr)
         print("Current Dir: ", self.current_dir, file=fileptr)
@@ -761,11 +885,13 @@ class BENCH_ENV:
         print("STD Signal WU Path: ", self.wu_std_signal_path, file=fileptr)
         print("WU Path: ", self.wu_path, file=fileptr)
         print("Test Data Path: ", self.testdata_path, file=fileptr)
-        print("BOINC Home: ", mb_const.boinc_home, file=fileptr)
+        print("BOINC Home: ", self.boinc_home, file=fileptr)
         print("Repetitions: ", self.repetitions, file=fileptr)
         print("Allocated CPU Threads: ", self.allocated_cthreads, file=fileptr)
         print("Allocated GPU Threads: ", self.allocated_gthreads, file=fileptr)
         #Print Modes
+        print("Mode %s: %s" %("yes", self.mode_yes), file=fileptr)
+        print("Mode %s: %s" %("noBS", self.mode_noBS), file=fileptr)
         print("Mode %s: %s" %("std_signals", self.mode_std_signals), file=fileptr)
         print("Mode %s: %s" %("display_slots", self.mode_display_slots), file=fileptr)
         print("Mode %s: %s" %("display_compact", self.mode_display_compact), file=fileptr)
@@ -851,10 +977,12 @@ class JOB_LIST:
             if len(line) == 0 : continue
             if line[0] == '#': continue
             if len(line) <2 : continue
-            lineitems = line.split(sep=' ', maxsplit=1)
+            #lineitems = line.split(sep=' ', maxsplit=1)
+            lineitems = line.split(maxsplit=1)
             #check if entry is a mode item
             if lineitems[0] == "mode":
-                modeitems = lineitems[1].split(sep=' ', maxsplit=2)
+                #modeitems = lineitems[1].split(sep=' ', maxsplit=2)
+                modeitems = lineitems[1].split(maxsplit=2)
                 if len(modeitems) < 2 :
                     continue
                 #process mode
@@ -880,6 +1008,7 @@ class JOB_LIST:
                 job.app_args = argstr
             else:
                 job.app_args = ""
+            print(env.cpu_app_path + job.app_name)
             if(os.path.isfile(env.cpu_app_path + job.app_name) == True): 
                 job.platform = "CPU"
             elif(os.path.isfile(env.gpu_app_path + job.app_name) == True): 
@@ -896,6 +1025,7 @@ class JOB_LIST:
             wu_path=env.wu_std_signal_path
         else :
             wu_path=env.wu_path
+        print("wu_path: ", wu_path)
         filelist = os.listdir(path=wu_path)
         for line in filelist:
             line = line.strip()
@@ -1551,7 +1681,7 @@ def main():
     parser.add_argument("-y", "--yes", help="Don't ask confirmation before running jobs", action="store_true", default=False)
     parser.add_argument("--cfg_file", help="Specify name alternative CFG file", type=str, default="BenchCFG")
     parser.add_argument("--run_name", help="Specify name of this run", type=str, default="")
-    parser.add_argument("--boinc_home", help="Specify path for BOINC", type=str, default=mb_const.boinc_home)
+    parser.add_argument("--boinc_home", help="Specify path for BOINC", type=str, default="")
     parser.add_argument("--noBS", help="Do not suspend BOINC", action="store_true", default=False)
     parser.add_argument("--display_compact", help="Display compact run status", action="store_true", default=False)
     parser.add_argument("--display_slots", help="Display run status by slots instead of jobs", action="store_true", default=False)
@@ -1567,16 +1697,7 @@ def main():
     parser.add_argument("--admin_mkdirs", help="Make required directories", action="store_true", default=False)
     parser.add_argument("-d", "--debug", help="Debug output", action="store_true", default=False)
     args = parser.parse_args()
-    mb_const.boinc_home = args.boinc_home
 
-
-    if args.debug == True :  mb_const.DEBUG = True
-
-    if args.no_ref == True and args.force_ref == True:
-        print("ERROR: --no_ref and --force_ref are mutually exclusive.  Exiting...")
-        sys.exit(-1)
-
-    # Set and verify working environment
     if args.about == True :  
         print(__doc__ )
         print("Author: ", __author__ )
@@ -1588,40 +1709,32 @@ def main():
         print("Status: ", __status__)
         sys.exit(0)
 
-    env = BENCH_ENV()
+    if args.debug == True :  mb_const.DEBUG = True
 
+    # Initialize and verify working environment
+    env = BENCH_ENV()
     # Check OS and python version
     if env.check_env() < 0:
         print("Error in environment. Exiting...")
         sys.exit(-1)
 
+    # Check existence of Configuration File
+    if len(args.cfg_file) > 0 :
+        if args.cfg_file != "BenchCFG" :
+            test_command_line_file = os.path.join(env.current_dir, args.cfg_file)
+            if(os.path.isfile(test_command_line_file) == True): 
+                env.command_line_file = test_command_line_file
+            else:
+                print("Specified BenchCFG [", test_command_line_file,"] doesn't exist")
+                sys.exit(-1)
+
+    # Run set_env in order to populate numbers of GPUS/CPU threads
     if(env.set_env() == False): 
         if args.admin_mkdirs == True :
             env.makedirs()
             sys.exit(0)
         print("Error in environment.  Exiting...")
         sys.exit(-1)
-
-    # Check if Energy metric is possible
-    gpu_list = GPU_LIST()
-    gpu_list.set_gpu_list()
-    if args.energy == True:
-        if env.check_amdgpu() == True:
-            print("GPU Energy metrics enabled")
-            env.mode_energy = True
-            gpu_list.set_gpu_list()
-            gpu_list.set_gpu_details()
-        else:
-            print("GPU Energy metrics not enabled")
-
-    if len(args.cfg_file) > 0 :
-        if args.cfg_file != "BenchCFG" :
-            test_command_line_file = env.current_dir + "/" + args.cfg_file
-            if(os.path.isfile(test_command_line_file) == True): 
-                env.command_line_file = test_command_line_file
-            else:
-                print("Specified BenchCFG [", test_command_line_file,"] doesn't exist")
-                sys.exit(-1)
 
     # Read BenchCFG file and create list of provided apps and aguments.
     # Determine of the apps are GPU or CPU by checking which APP_DIR they are located in
@@ -1631,139 +1744,68 @@ def main():
     if mb_const.DEBUG == True: applist.print(title="Initial app list")
 
     # set modes with CFG file mode statements
-    specified_max_threads = -1
-    specified_max_gpus = -1
-    if cfg_modes.mode_value("yes") == True :  args.yes = True
-    if cfg_modes.mode_value("run_name") != None :
-        if len(cfg_modes.mode_value("run_name")) > 0 :
-            if cfg_modes.mode_value("run_name").isprintable():
-                env.run_name = cfg_modes.mode_value("run_name").replace(' ','')
-                env.run_name = env.run_name.replace('/','')
-                env.run_name = env.run_name.replace('\\','')
-    if cfg_modes.mode_value("force_ref") == True :  env.mode_force_ref = True
-    if cfg_modes.mode_value("no_ref") == True :  env.mode_no_ref = True
-    if cfg_modes.mode_value("std_signals") == True :  env.mode_std_signals = True
-    if cfg_modes.mode_value("display_compact") == True :  env.mode_display_compact = True
-    if cfg_modes.mode_value("display_slots") == True :  env.mode_display_slots = True
-    if cfg_modes.mode_value("energy") == True :  env.mode_energy = True
-    # read user specified GPU device list
-    cfg_devmap = {}
-    if cfg_modes.mode_value("devmap") != None:
-        if re.fullmatch('([0-9]:[0-9],)*([0-9]:[0-9])+', cfg_modes.mode_value("devmap")):
-            gdev_items = cfg_modes.mode_value("devmap").split(',')
-            cfg_devmap = {}
-            for gi in gdev_items:
-                giItems = gi.split(':')
-                cfg_devmap[int(giItems[0])] = int(giItems[1])
-        else:
-            print("Invalid CFG devmap arg: [", cfg_modes.mode_value("devmap"), "]")
-    cfg_gpu_devices = []
-    if cfg_modes.mode_value("gpu_devices") != None:
-        if re.fullmatch('([0-9],)*([0-9])+', cfg_modes.mode_value("gpu_devices")):
-            gdev_items = cfg_modes.mode_value("gpu_devices").split(',')
-            cfg_gpu_devices = []
-            for gi in gdev_items:
-                cfg_gpu_devices[len(cfg_gpu_devices):] = [int(gi)]
-            if max(cfg_gpu_devices) > env.total_gpu_threads - 1:
-                print("Invalid gpu_device mode, max of ", str(cfg_gpu_devices),
-                        "is > number of GPUs [", env.total_gpu_threads, " - 1 ]")
-                cfg_gpu_devices = []
-            else:
-                print("CFG gpu_devices: ", str(cfg_gpu_devices))
-        else:
-            print("Invalid CFG gpu_devices arg: [", cfg_modes.mode_value("gpu_devices"), "]")
-    if cfg_modes.mode_value("num_repetitions") != None : 
-        if cfg_modes.mode_value("num_repetitions") > 0 : 
-            env.repetitions = cfg_modes.mode_value("num_repetitions")
-        else:
-            print("CFG: Invalid number of repetitions specified ["+ str(cfg_modes.mode_value("num_repetitions")) + "].  Ignoring...")
-    if cfg_modes.mode_value("max_threads") != None : 
-        if cfg_modes.mode_value("max_threads") > 0 : 
-            specified_max_threads = cfg_modes.mode_value("max_threads")
-    if cfg_modes.mode_value("max_gpus") != None : 
-        if cfg_modes.mode_value("max_gpus") > 0 : 
-            specified_max_gpus = cfg_modes.mode_value("max_gpus")
-
-    # overwrite modes with command line arguments
-    if len(args.run_name) > 0 :
-        if args.run_name.isprintable():
-            env.run_name = args.run_name.replace(' ','')
-            env.run_name = env.run_name.replace('/','')
-            env.run_name = env.run_name.replace('\\','')
-    if args.force_ref == True :  env.mode_force_ref = True
-    if args.no_ref == True :  env.mode_no_ref = True
-    if args.std_signals == True :  env.mode_std_signals = True
-    if args.display_compact == True :  env.mode_display_compact = True
-    if args.display_slots == True :  env.mode_display_slots = True
-    if args.energy == True :  env.mode_energy = True
-    # read user specified GPU device list
-    specified_devmap = {}
-    if len(args.devmap) > 0:
-        if re.fullmatch('([0-9]:[0-9],)*([0-9]:[0-9])+', args.devmap):
-            gdev_items = args.devmap.split(',')
-            specified_devmap = {}
-            for gi in gdev_items:
-                giItems = gi.split(':')
-                specified_devmap[int(giItems[0])] = int(giItems[1])
-        else:
-            print("Invalid devmap arg: [", args.devmap, "]")
-    specified_gpu_devices = []
-    if len(args.gpu_devices) > 0:
-        if re.fullmatch('([0-9],)*([0-9])+', args.gpu_devices):
-            gdev_items = args.gpu_devices.split(',')
-            specified_gpu_devices = []
-            for gi in gdev_items:
-                specified_gpu_devices[len(specified_gpu_devices):] = [int(gi)]
-            if max(specified_gpu_devices) > env.total_gpu_threads - 1:
-                print("Invalid gpu_device specified, max of ", str(specified_gpu_devices),
-                        "is > number of GPUs [", env.total_gpu_threads, " - 1 ]")
-                specified_gpu_devices = []
-            else:
-                print("Specified gpu_devices: ", str(specified_gpu_devices))
-        else:
-            print("Invalid gpu_devices arg: [", args.gpu_devices, "]")
-    if args.num_repetitions > 1 : 
-        env.repetitions = args.num_repetitions
-
-    if args.max_threads > 0: specified_max_threads = args.max_threads
-    if specified_max_threads > 0 and specified_max_threads < env.total_cpu_threads :
-        env.allocated_cthreads = specified_max_threads
-    else:
-        env.allocated_cthreads = env.total_cpu_threads
-
-    if args.max_gpus > 0: specified_max_gpus = args.max_gpus
-    if specified_max_gpus > 0 and specified_max_gpus < env.total_gpu_threads :
-        env.allocated_gthreads = specified_max_gpus
-    else:
-        env.allocated_gthreads = env.total_gpu_threads
-
-    if len(specified_devmap) == 0:
-        if len(cfg_devmap) > 0:
-            specified_devmap = cfg_devmap
-    if len(specified_devmap) > 0:
-        env.devmap = specified_devmap
-        gpu_list.devmap = specified_devmap
-
-    if len(specified_gpu_devices) == 0:
-        if len(cfg_gpu_devices) > 0:
-            specified_gpu_devices = cfg_gpu_devices
-    if len(specified_gpu_devices) > 0:
-        if len(specified_gpu_devices) == env.allocated_gthreads:
-            env.gpu_devices = specified_gpu_devices
-            print("Set specified gpu_devices: ", str(specified_gpu_devices))
-        else:
-            print("Mismatch with allocated GPUS, reset allocated devices to %d" % len(specified_gpu_devices))
-            env.allocated_gthreads = len(specified_gpu_devices)
+    env.process_options(args, cfg_modes)
 
     if env.mode_energy == True:
         if len(env.devmap) != env.total_gpu_threads:
             print("With Energy mode, a devmap must include all devices - devmap: " + str(env.devmap) +  " devices: " + str(env.total_gpu_threads))
             sys.exit(-1)
 
-    if env.mode_no_ref == True and env.mode_force_ref == True:
-        print("ERROR: --no_ref and --force_ref are mutually exclusive.  Exiting...")
+    # Check if specified GPUs exceed total GPUS and set env.gpu_devices
+    if len(env.mode_gpu_devices) == 0:
+        env.gpu_devices = env.total_gpu_devices
+    else:
+        if max(env.mode_gpu_devices) > env.total_gpu_threads - 1:
+            print("Invalid gpu_device specified, max of ", str(env.mode_gpu_devices),
+                    "is > number of GPUs [", env.total_gpu_threads, " - 1 ]")
+            print("Exiting...")
+            sys.exit(-1)
+        elif len(env.mode_gpu_devices) > 0:
+            env.gpu_devices = env.mode_gpu_devices
+            print("Specified gpu_devices: ", str(env.mode_gpu_devices))
+        else:
+            env.gpu_devices = env.total_gpu_devices
+
+    # Allocate appropriate CPU threads
+    if env.specified_max_threads > 0 and env.specified_max_threads < env.total_cpu_threads :
+        env.allocated_cthreads = env.specified_max_threads
+    else:
+        env.allocated_cthreads = env.total_cpu_threads
+
+    # Allocate appropriate GPU threads
+    if env.specified_max_gpus > 0 and env.specified_max_gpus < env.total_gpu_threads :
+        env.allocated_gthreads = env.specified_max_gpus
+    else:
+        env.allocated_gthreads = env.total_gpu_threads
+
+    # Allocate appropriate GPU threads based on specified GPUs
+    if len(env.gpu_devices) == env.allocated_gthreads:
+        print("Set specified gpu_devices: ", str(env.gpu_devices))
+    elif len(env.gpu_devices) < env.allocated_gthreads:
+        print("Mismatch with allocated GPUS [%d], reset allocated devices to %d" % (env.allocated_gthreads, len(env.gpu_devices)))
+        env.allocated_gthreads = len(env.gpu_devices)
+    else:
+        print("Specified more GPUS [%d], than allocated [%d]" % (len(env.gpu_devices), env.allocated_gthreads))
+    # end setting up the environment
+
+    # Run set_env_boinc in order to set boinc environment
+    if(env.set_env_boinc() == False): 
+        print("Error in BOINC environment.  Exiting...")
         sys.exit(-1)
 
+    # Check if Energy metric is possible
+    if args.energy == True:
+        if env.check_amdgpu() == True:
+            gpu_list = GPU_LIST()
+            gpu_list.set_gpu_list()
+            gpu_list.devmap = env.devmap
+            print("GPU Energy metrics enabled")
+            env.mode_energy = True
+            gpu_list.set_gpu_list()
+            gpu_list.set_gpu_details()
+        else:
+            print("GPU Energy metrics not possible, disabling them.")
+            env.mode_energy = False
 
     env.print()
 
@@ -1772,7 +1814,7 @@ def main():
     wulist.read_wu_list(env)
     if mb_const.DEBUG == True: wulist.print(title="Initial WU list")
 
-    if args.no_ref == False:
+    if env.mode_no_ref == False:
         # Create a reference job list
         reflist = JOB_LIST()
         ref_app = BENCH_JOB(uuid4().hex)
@@ -1798,7 +1840,7 @@ def main():
     # Create a final job list from the applist and wulist and append reflist
     joblist = JOB_LIST()
     joblist.create_job_list(applist, wulist, env)
-    if args.no_ref == False: joblist.append_job_list(reflist)
+    if env.mode_no_ref == False: joblist.append_job_list(reflist)
     joblist.print(title="Final Job List")
 
     # Prepare working slots
@@ -1843,13 +1885,8 @@ def main():
     num_pending_jobs = num_pending_pjobs["CPU"] + num_pending_pjobs["GPU"]
     print("Pending jobs (CPU/GPU): ", num_pending_pjobs["CPU"],"/", num_pending_pjobs["GPU"])
     print("Pending reference jobs: ", num_pending_pjobs["REF"])
-    if args.yes == False :
+    if env.mode_yes == False :
         if input("Execute listed jobs? [y/N]").lower() != 'y': sys.exit(1)
-    # check if there is already and instance running in this directory
-    #This check is too late in the flow
-    #if env.is_bench_conflict() :
-        #print("Another instance of benchMT is running in this directory, exiting...")
-        #exit(-1)
 
 
     if mb_const.DEBUG == False: os.system('clear')
@@ -1872,7 +1909,7 @@ def main():
     env.psv_file_ptr = open(env.psv_file, 'w', 1)
     print(__program_name__ + " " +  __version__ +  " \u2015 SETI MB Benchmarking Utility \u2015 Linux edition\n",
             file=env.sum_file_ptr)
-    if args.noBS == False:
+    if env.noBS == False:
         print("Suspending BOINC\n", file=env.sum_file_ptr)
         env.suspend_boinc()
     print("System Details", file=env.sum_file_ptr)
@@ -2008,7 +2045,7 @@ def main():
     joblist.psv_print(env, fileptr=env.psv_file_ptr)
 
     os.chdir(env.current_dir)
-    if args.noBS == False:
+    if env.noBS == False:
         print("Resuming BOINC", file=env.sum_file_ptr)
         env.resume_boinc()
 
