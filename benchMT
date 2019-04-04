@@ -126,7 +126,8 @@ class CFG_MODES:
                 "std_signals" : None,
                 "no_ref" : None,
                 "force_ref" : None,
-                "energy" : None
+                "energy" : None,
+                "astropulse" : None
                 }
         self.type = {
                 "yes" : "Logical",
@@ -143,7 +144,8 @@ class CFG_MODES:
                 "std_signals" : "Logical",
                 "no_ref" : "Logical",
                 "force_ref" : "Logical",
-                "energy" : "Logical"
+                "energy" : "Logical",
+                "astropulse" : "Logical"
                 }
 
     def set_mode(self, mode_name, mode_value):
@@ -372,6 +374,7 @@ class BENCH_ENV:
         self.mode_energy = False
         self.mode_yes = False
         self.mode_noBS = False
+        self.mode_astropulse = False
         self.boinc_home = mb_const.boinc_home
 
     def process_options(self, args, cfg_modes):
@@ -411,6 +414,10 @@ class BENCH_ENV:
         # mode_energy
         if args.energy == True:  self.mode_energy = True
         elif cfg_modes.mode_value("energy") == True:  self.mode_energy = True
+    
+        # mode_astropulse
+        if args.astropulse == True:  self.mode_astropulse = True
+        elif cfg_modes.mode_value("astropulse") == True:  self.mode_astropulse = True
     
         # mode_boinc_home
         if len(args.boinc_home) > 0 and args.boinc_home.isprintable():
@@ -867,6 +874,10 @@ class BENCH_ENV:
         """
         print("Hostname: ", self.hostname, file=fileptr)
         print("Run Name: ", self.run_name, file=fileptr)
+        if self.mode_astropulse:
+            print("APP Mode: ", "AstroPulse", file=fileptr)
+        else:
+            print("APP Mode: ", "MultiBeam", file=fileptr)
         print("Platform: ", self.platform, file=fileptr)
         print("OS Description: ", self.os_desc, file=fileptr)
         print("CPU Model: ", self.cpu_model, file=fileptr)
@@ -903,6 +914,7 @@ class BENCH_ENV:
         print("Mode %s: %s" %("no_ref", self.mode_no_ref), file=fileptr)
         print("Mode %s: %s" %("force_ref", self.mode_force_ref), file=fileptr)
         print("Mode %s: %s" %("energy", self.mode_energy), file=fileptr)
+        print("Mode %s: %s" %("astropulse", self.mode_astropulse), file=fileptr)
 
 
 
@@ -1355,60 +1367,62 @@ class JOB_LIST:
                                 v.error = v.error + "[No stderr.txt file]"
 
                             # Get parameters like AR and signal counts from results file
-                            v.cnt_spike = 0
-                            v.cnt_autocorr = 0
-                            v.cnt_pulse = 0
-                            v.cnt_triplet = 0
-                            v.cnt_gaussian = 0
+                            if env.mode_astropulse == False:
+                                v.cnt_spike = 0
+                                v.cnt_autocorr = 0
+                                v.cnt_pulse = 0
+                                v.cnt_triplet = 0
+                                v.cnt_gaussian = 0
 
-                            if(os.path.isfile(cur_result_file) == True): 
-                                resfptr = open(cur_result_file, 'r')
-                                for line in resfptr:
-                                    linestr = line.strip()
-                                    if len(linestr) == 0 : continue
-                                    if linestr[0] == '#': continue
-                                    if len(linestr) <2 : continue
-                                    if v.angle_range == 0:
-                                        searchObj = re.search('true_angle_range', linestr)
+                                if(os.path.isfile(cur_result_file) == True): 
+                                    resfptr = open(cur_result_file, 'r')
+                                    for line in resfptr:
+                                        linestr = line.strip()
+                                        if len(linestr) == 0 : continue
+                                        if linestr[0] == '#': continue
+                                        if len(linestr) <2 : continue
+                                        if v.angle_range == 0:
+                                            searchObj = re.search('true_angle_range', linestr)
+                                            if(searchObj != None):
+                                                lineItem = linestr.split('true_angle_range')
+                                                ar_str = re.sub(r'[^\d.]', '', lineItem[1])
+                                                print("Angle Range: ["+ar_str + "]")
+                                                v.angle_range = float(ar_str)
+                                                continue
+                                        searchObj = re.search(r'<spike>', linestr)
                                         if(searchObj != None):
-                                            lineItem = linestr.split('true_angle_range')
-                                            ar_str = re.sub(r'[^\d.]', '', lineItem[1])
-                                            print("Angle Range: ["+ar_str + "]")
-                                            v.angle_range = float(ar_str)
+                                            v.cnt_spike += 1
                                             continue
-                                    searchObj = re.search(r'<spike>', linestr)
-                                    if(searchObj != None):
-                                        v.cnt_spike += 1
-                                        continue
-                                    searchObj = re.search(r'<autocorr>', linestr)
-                                    if(searchObj != None):
-                                        v.cnt_autocorr += 1
-                                        continue
-                                    searchObj = re.search(r'<pulse>', linestr)
-                                    if(searchObj != None):
-                                        v.cnt_pulse += 1
-                                        continue
-                                    searchObj = re.search(r'<triplet>', linestr)
-                                    if(searchObj != None):
-                                        v.cnt_triplet += 1
-                                        continue
-                                    searchObj = re.search(r'<gaussian>', linestr)
-                                    if(searchObj != None):
-                                        v.cnt_gaussian += 1
-                                        continue
-                                resfptr.close()
+                                        searchObj = re.search(r'<autocorr>', linestr)
+                                        if(searchObj != None):
+                                            v.cnt_autocorr += 1
+                                            continue
+                                        searchObj = re.search(r'<pulse>', linestr)
+                                        if(searchObj != None):
+                                            v.cnt_pulse += 1
+                                            continue
+                                        searchObj = re.search(r'<triplet>', linestr)
+                                        if(searchObj != None):
+                                            v.cnt_triplet += 1
+                                            continue
+                                        searchObj = re.search(r'<gaussian>', linestr)
+                                        if(searchObj != None):
+                                            v.cnt_gaussian += 1
+                                            continue
+                                    resfptr.close()
 
                                 # write to run log
                                 #print("=".ljust(80, "="), file=env.sum_file_ptr)
                                 print("App Name: ", v.app_name, file=env.sum_file_ptr)
                                 print("App Args: ", v.app_args, file=env.sum_file_ptr)
                                 print("WU Name:  ", v.wu_name, file=env.sum_file_ptr)
-                                print("WU Angle Range: ", v.angle_range, file=env.sum_file_ptr)
-                                print("Spike count:    ", v.cnt_spike, file=env.sum_file_ptr)
-                                print("Autocorr count: ", v.cnt_autocorr, file=env.sum_file_ptr)
-                                print("Pulse count:    ", v.cnt_pulse, file=env.sum_file_ptr)
-                                print("Triplet count:  ", v.cnt_triplet, file=env.sum_file_ptr)
-                                print("Gaussian count: ", v.cnt_gaussian, file=env.sum_file_ptr)
+                                if env.mode_astropulse == False:
+                                    print("WU Angle Range: ", v.angle_range, file=env.sum_file_ptr)
+                                    print("Spike count:    ", v.cnt_spike, file=env.sum_file_ptr)
+                                    print("Autocorr count: ", v.cnt_autocorr, file=env.sum_file_ptr)
+                                    print("Pulse count:    ", v.cnt_pulse, file=env.sum_file_ptr)
+                                    print("Triplet count:  ", v.cnt_triplet, file=env.sum_file_ptr)
+                                    print("Gaussian count: ", v.cnt_gaussian, file=env.sum_file_ptr)
                                 print("Results:  ", cur_result_file, file=env.sum_file_ptr)
                                 print("REF Name: ", ref_result_file, file=env.sum_file_ptr)
                                 print("", file=env.sum_file_ptr)
@@ -1424,7 +1438,7 @@ class JOB_LIST:
                                         print("Energy:       %s kWh" %(v.energy), file=env.sum_file_ptr)
                                 print("", file=env.sum_file_ptr)
     
-                                if ref_result_file != "":
+                                if ref_result_file != "" and env.mode_astropulse == False:
                                     # compare results to reference
                                     v.similarity = "Unknown"
                                     v.q_value = "Unknown"
@@ -1497,7 +1511,9 @@ class JOB_LIST:
                                 v.error = v.error + "[No stderr.txt file]"
 
                         # Clean slot
-                        for filename in ["boinc_finish_called", "boinc_lockfile", "state.sah", "wisdom.sah"] :
+                        for filename in ["boinc_finish_called", "boinc_lockfile", "state.sah", "wisdom.sah", "fold.dat",
+                                "fold.dat0", "fold.dat1", "indices.txt", "ap_state.dat", "ap_state.dat0", "ap_state.dat1",
+                                "pulse.out", "pulse.out0", "pulse.out1"] :
                             if(os.path.isfile(v.slot_dir +"/"+ filename) == True): 
                                 os.remove(v.slot_dir +"/"+ filename)
                                 if mb_const.DEBUG == True: print("Clean slots removed: ", v.slot_dir +"/"+ filename)
@@ -1702,6 +1718,7 @@ def main():
     parser.add_argument("--gpu_devices", help="Specify which GPUs to use: 0,1,2", type=str, default="")
     parser.add_argument("--devmap", help="Specify mapping of boinc device to card #: {B:C,B:C}", type=str, default="")
     parser.add_argument("--energy", help="Report energy usage (amdgpu driver only)", action="store_true", default=False)
+    parser.add_argument("--astropulse", help="Run in AstroPulse mode", action="store_true", default=False)
     parser.add_argument("--std_signals", help="Use standard signal WUs instead of Test WUs", action="store_true", default=False)
     parser.add_argument("--no_ref", help="Do not generate reference results", action="store_true", default=False)
     parser.add_argument("--force_ref", help="Force generation of reference results", action="store_true", default=False)

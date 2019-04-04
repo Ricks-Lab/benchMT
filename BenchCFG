@@ -64,6 +64,9 @@
 #Specify Energy mode
 #mode energy True
 #
+#Specify AstroPulse mode
+#mode astropulse True
+#
 #Use standard signal WUs instead of Test WUs
 #mode std_signals True
 #
