@@ -1374,42 +1374,45 @@ class JOB_LIST:
                                 v.cnt_triplet = 0
                                 v.cnt_gaussian = 0
 
-                                if(os.path.isfile(cur_result_file) == True): 
-                                    resfptr = open(cur_result_file, 'r')
-                                    for line in resfptr:
-                                        linestr = line.strip()
-                                        if len(linestr) == 0 : continue
-                                        if linestr[0] == '#': continue
-                                        if len(linestr) <2 : continue
-                                        if v.angle_range == 0:
-                                            searchObj = re.search('true_angle_range', linestr)
+                                try:
+                                    if(os.path.isfile(cur_result_file) == True): 
+                                        resfptr = open(cur_result_file, 'r')
+                                        for line in resfptr:
+                                            linestr = line.strip()
+                                            if len(linestr) == 0 : continue
+                                            if linestr[0] == '#': continue
+                                            if len(linestr) <2 : continue
+                                            if v.angle_range == 0:
+                                                searchObj = re.search('true_angle_range', linestr)
+                                                if(searchObj != None):
+                                                    lineItem = linestr.split('true_angle_range')
+                                                    ar_str = re.sub(r'[^\d.]', '', lineItem[1])
+                                                    print("Angle Range: ["+ar_str + "]")
+                                                    v.angle_range = float(ar_str)
+                                                    continue
+                                            searchObj = re.search(r'<spike>', linestr)
                                             if(searchObj != None):
-                                                lineItem = linestr.split('true_angle_range')
-                                                ar_str = re.sub(r'[^\d.]', '', lineItem[1])
-                                                print("Angle Range: ["+ar_str + "]")
-                                                v.angle_range = float(ar_str)
+                                                v.cnt_spike += 1
                                                 continue
-                                        searchObj = re.search(r'<spike>', linestr)
-                                        if(searchObj != None):
-                                            v.cnt_spike += 1
-                                            continue
-                                        searchObj = re.search(r'<autocorr>', linestr)
-                                        if(searchObj != None):
-                                            v.cnt_autocorr += 1
-                                            continue
-                                        searchObj = re.search(r'<pulse>', linestr)
-                                        if(searchObj != None):
-                                            v.cnt_pulse += 1
-                                            continue
-                                        searchObj = re.search(r'<triplet>', linestr)
-                                        if(searchObj != None):
-                                            v.cnt_triplet += 1
-                                            continue
-                                        searchObj = re.search(r'<gaussian>', linestr)
-                                        if(searchObj != None):
-                                            v.cnt_gaussian += 1
-                                            continue
-                                    resfptr.close()
+                                            searchObj = re.search(r'<autocorr>', linestr)
+                                            if(searchObj != None):
+                                                v.cnt_autocorr += 1
+                                                continue
+                                            searchObj = re.search(r'<pulse>', linestr)
+                                            if(searchObj != None):
+                                                v.cnt_pulse += 1
+                                                continue
+                                            searchObj = re.search(r'<triplet>', linestr)
+                                            if(searchObj != None):
+                                                v.cnt_triplet += 1
+                                                continue
+                                            searchObj = re.search(r'<gaussian>', linestr)
+                                            if(searchObj != None):
+                                                v.cnt_gaussian += 1
+                                                continue
+                                        resfptr.close()
+                                except:
+                                    print("Fatal error in reading results.  Are you running AP benchmarks and not in astropulse mode?")
 
                                 # write to run log
                                 #print("=".ljust(80, "="), file=env.sum_file_ptr)
