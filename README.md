@@ -1,11 +1,11 @@
-# benchMT  -  SETI multi-threaded MB Benchmark Tool
+# benchMT  -  SETI multi-threaded MB/AP Benchmark Tool
 
  Download the latest release [here](https://github.com/Ricks-Lab/benchMT/releases/tag/v1.5.0)
 
  This tool will extract the total number of CPU cores/threads and GPU platforms from the user's
  environment and utilize them in running a list of apps/args specified in the benchCFG file.  Using
  less than the total number of CPU threads can be specified in the command line.  This tool will
- read a list of MB apps/args from the BenchCFG file and search for the specified MB apps in the
+ read a list of MB/AP apps/args from the BenchCFG file and search for the specified MB/AP apps in the
  APP_CPU and APP_GPU directories to validate and determine platform.  It will then leverage allocated
  threads, as specified, to run all benchmark jobs, storing results in the testData directory.  Use
  the *--help* option to get a description of valid command line arguments. In support of automation,
@@ -32,14 +32,26 @@
  used if your system has amdgpu drivers with compatible GPUs to give the energy used in running a 
  task.  In order to correctly associate a GPU card number with a BOINC device number, you must
  specify this with the *--devmap B:C,B2:C2* option.  I know of no reobust way to make this mapping
- other than manually running each card individually and observing which card is being used.
+ other than manually running each card individually and observing which card is being used.  If
+ you are running an AstroPulse app, you must specify the *--astropulse* option in order for it to
+ run properly.
 
  The results will be stored in a unique subdir of the testData directory. There is an overall run
  log txt file, a psv file useful for importing into an analytics tools, and the sah and stderr
  files for each job run. A run name can be specified with the *--run_name* commane line option. This
  name will be included in the name of the testData subdirectory for the current run.
 
-## New in this Release  -  v1.5.0
+## New in this Release  -  v1.6.0 (Under Testing)
+* Complete rewrite of commandline/config file option parsing.  Original got complex and buggy.
+* Support execution and time/energy metrics for AstroPulse apps/wus.  Still no working results comparison utility, so comparison to reference results not possible.
+
+## Development Plans and Known Limitations
+* Currently, running more than one job at a time on a single GPU is not supported. 
+* Consider an alternative to lshw to get valid GPU compute platforms, since lshw doesn't check for compute capability.
+* Energy reporting feature only implemented for GPUs using amdgpu drivers.  If you know how to read current power for nVidia GPUs and want to collaborate on implementing this feature, let me know!
+
+## History
+#### New in Previous Release  -  v1.5.0
 * Implemented checks of Python and Kernel version to verify compatibility.
 * Implemented more robust system calls.
 * Fixed an error in parsing lshw output to extract GPU names and added error checking.
@@ -48,12 +60,6 @@
 * Code robustness improvements (path joins and key checks).
 * Run completion message now includes the location of the results.
 
-## Development Plans and Known Limitations
-* Currently, running more than one job at a time on a single GPU is not supported. 
-* Consider an alternative to lshw to get valid GPU compute platforms, since lshw doesn't check for compute capability.
-* Energy reporting feature only implemented for GPUs using amdgpu drivers.  If you know how to read current power for nVidia GPUs and want to collaborate on implementing this feature, let me know!
-
-## History
 #### New in Previous Release  -  v1.4.0
 * Write run_name to the psv file.  Useful when wanting to analyze the data from multiple runs.
 * Include nVidia stock MB app in the distribution.
