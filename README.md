@@ -1,6 +1,6 @@
 # benchMT  -  SETI multi-threaded MB/AP Benchmark Tool
 
- Download the latest release [here](https://github.com/Ricks-Lab/benchMT/releases/tag/v1.5.0)
+ Download the latest release [here](https://github.com/Ricks-Lab/benchMT/releases/tag/v1.6.0)
 
  This tool will extract the total number of CPU cores/threads and GPU platforms from the user's
  environment and utilize them in running a list of apps/args specified in the benchCFG file.  Using
@@ -41,7 +41,7 @@
  files for each job run. A run name can be specified with the *--run_name* commane line option. This
  name will be included in the name of the testData subdirectory for the current run.
 
-## New in this Release  -  v1.6.0 (Under Testing)
+## New in this Release  -  v1.6.0
 * Complete rewrite of commandline/config file option parsing.  Original got complex and buggy.
 * Support execution and time/energy metrics for AstroPulse apps/wus.  Still no working results comparison utility, so comparison to reference results not possible.
 
