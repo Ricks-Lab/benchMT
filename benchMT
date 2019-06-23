@@ -60,7 +60,7 @@ __copyright__ = "Copyright (C) 2018 RueiKe"
 __credits__ = ["Keith Myers - Testing and Verification"]
 __license__ = "GNU General Public License"
 __program_name__ = "benchMT"
-__version__ = "v1.6.0"
+__version__ = "v1.6.1"
 __maintainer__ = "RueiKe"
 __status__ = "Stable Release"
 
@@ -101,6 +101,7 @@ class MB_CONST:
         self.activeWU = "work_unit.sah"
         self.activeAPWU = "in.dat"
         self.DEBUG = False
+        self.noBS = False
 
         # Items required for AMD Energy feature
         self.featuremask = "/sys/module/amdgpu/parameters/ppfeaturemask"
@@ -734,19 +735,21 @@ class BENCH_ENV:
 
     def set_env_boinc(self):
         valid = True
-        if(os.path.isdir(self.boinc_home) == False): 
-            print("BOINC Home Path [", self.boinc_home,"] doesn't exist")
-            print("Please set the correct BOINC Home Path with the --boinc_home command line option")
-            valid = False
+        if mb_const.noBS == False:
+            if(os.path.isdir(self.boinc_home) == False): 
+                print("BOINC Home Path [", self.boinc_home,"] doesn't exist")
+                print("Please set the correct BOINC Home Path with the --boinc_home command line option")
+                valid = False
 
         self.wucmpcmd = os.path.join(self.current_dir, mb_const.wu_cmp)
         if(os.path.isfile(self.wucmpcmd) == False): 
             print("Results Compare Utility [", self.wucmpcmd,"] doesn't exist")
             valid = False
-        self.boinccmd = os.path.join(self.boinc_home, mb_const.boinccmd)
-        if(os.path.isfile(self.boinccmd) == False): 
-            print("boinccmd [", self.boinccmd,"] doesn't exist")
-            valid = False
+        if mb_const.noBS == False:
+            self.boinccmd = os.path.join(self.boinc_home, mb_const.boinccmd)
+            if(os.path.isfile(self.boinccmd) == False): 
+                print("boinccmd [", self.boinccmd,"] doesn't exist")
+                valid = False
         if(os.path.isfile(self.init_data_template_file) == False): 
             print("init_data.xml_template file [", self.init_data_template_file,"] doesn't exist, creating...")
             fileptr = open(self.init_data_template_file, 'w')
@@ -1742,6 +1745,7 @@ def main():
         sys.exit(0)
 
     if args.debug == True :  mb_const.DEBUG = True
+    if args.noBS == True :  mb_const.noBS = True
 
     # Initialize and verify working environment
     env = BENCH_ENV()
