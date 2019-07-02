@@ -17,7 +17,8 @@
     optimize the progress display.
 
     You may need to use the *--boinc_home* command option to specify the boinc home directory, which
-    is required, since boinccmd is used. An alternative BenchCFG file can be specified with the
+    is required, since boinccmd is used. Specifying --noBS on the command line will allow benchMT to 
+    function without a boinc installation.  An alternative BenchCFG file can be specified with the
     command line option *--cfg_file filename*.
 
     All WUs in the WU_test directory will be used in the creation of jobs to be run, unless the
