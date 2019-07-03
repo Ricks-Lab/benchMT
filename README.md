@@ -45,6 +45,7 @@
 * *--noBS* on the command line will allow benchMT to function without a boinc installation.
 
 ## Development Plans and Known Limitations
+* Doesn't work in console of server install of Ubuntu.  Need to investigate this.
 * Currently, running more than one job at a time on a single GPU is not supported. 
 * Consider an alternative to lshw to get valid GPU compute platforms, since lshw doesn't check for compute capability.
 * Energy reporting feature only implemented for GPUs using amdgpu drivers.  If you know how to read current power for nVidia GPUs and want to collaborate on implementing this feature, let me know!
