@@ -61,7 +61,7 @@ __copyright__ = "Copyright (C) 2018 RueiKe"
 __credits__ = ["Keith Myers - Testing and Verification"]
 __license__ = "GNU General Public License"
 __program_name__ = "benchMT"
-__version__ = "v1.6.1"
+__version__ = "v1.6.2"
 __maintainer__ = "RueiKe"
 __status__ = "Stable Release"
 
@@ -110,51 +110,49 @@ class MB_CONST:
         self.card_root = "/sys/class/drm/"
         self.hwmon_sub = "hwmon/hwmon"
 
-mb_const=MB_CONST()
+
+mb_const = MB_CONST()
+
 
 class CFG_MODES:
     def __init__(self):
-        self.modes = {
-                "yes" : None,
-                "run_name" : None,
-                "boinc_home" : None,
-                "noBS" : None,
-                "display_compact" : None,
-                "display_slots" : None,
-                "num_repetitions" : None,
-                "max_threads" : None,
-                "max_gpus" : None,
-                "gpu_devices" : None,
-                "devmap" : None,
-                "std_signals" : None,
-                "no_ref" : None,
-                "force_ref" : None,
-                "energy" : None,
-                "astropulse" : None
-                }
-        self.type = {
-                "yes" : "Logical",
-                "run_name" : "String",
-                "boinc_home" : "String",
-                "noBS" : "Logical",
-                "display_compact" : "Logical",
-                "display_slots" : "Logical",
-                "num_repetitions" : "Numeric",
-                "max_threads" : "Numeric",
-                "max_gpus" : "Numeric",
-                "gpu_devices" : "String",
-                "devmap" : "String",
-                "std_signals" : "Logical",
-                "no_ref" : "Logical",
-                "force_ref" : "Logical",
-                "energy" : "Logical",
-                "astropulse" : "Logical"
-                }
+        self.modes = {"yes": None,
+                      "run_name": None,
+                      "boinc_home": None,
+                      "noBS": None,
+                      "display_compact": None,
+                      "display_slots": None,
+                      "num_repetitions": None,
+                      "max_threads": None,
+                      "max_gpus": None,
+                      "gpu_devices": None,
+                      "devmap": None,
+                      "std_signals": None,
+                      "no_ref": None,
+                      "force_ref": None,
+                      "energy": None,
+                      "astropulse": None}
+        self.type = {"yes": "Logical",
+                     "run_name": "String",
+                     "boinc_home": "String",
+                     "noBS": "Logical",
+                     "display_compact": "Logical",
+                     "display_slots": "Logical",
+                     "num_repetitions": "Numeric",
+                     "max_threads": "Numeric",
+                     "max_gpus": "Numeric",
+                     "gpu_devices": "String",
+                     "devmap": "String",
+                     "std_signals": "Logical",
+                     "no_ref": "Logical",
+                     "force_ref": "Logical",
+                     "energy": "Logical",
+                     "astropulse": "Logical"}
 
     def set_mode(self, mode_name, mode_value):
-        if (mode_name in self.modes) == False:
+        if mode_name not in self.modes:
             return False
-        if (mode_name in self.type) == False:
+        if mode_name not in self.type:
             return False
 
         if self.type[mode_name] == "Logical":
@@ -177,9 +175,9 @@ class CFG_MODES:
             return False
 
     def mode_value(self, mode_name):
-        if mode_name in self.modes.keys() == False:
+        if mode_name not in self.modes.keys():
             return False
-        return(self.modes[mode_name])
+        return self.modes[mode_name]
 
     def print(self):
         for m,v in self.modes.items():
@@ -199,25 +197,25 @@ class GPU_ITEM:
         self.compatible = True
         self.amdgpu_compatible = False
         time_0 = datetime.utcnow()
-        self.energy = {"t0": time_0, "tn": time_0, "cummulative": 0.0}
+        self.energy = {"t0": time_0, "tn": time_0, "cumulative": 0.0}
         self.power = -1
 
     def reset_energy(self):
         time_0 = datetime.utcnow()
-        self.energy = {"t0": time_0, "tn": time_0, "cummulative": 0.0}
+        self.energy = {"t0": time_0, "tn": time_0, "cumulative": 0.0}
 
     def get_energy(self):
-        return(self.energy["cummulative"])
+        return self.energy["cumulative"]
 
     def update_energy_data(self):
-        if(os.path.isfile(self.hwmon_path + "power1_average") == True):
+        if os.path.isfile(self.hwmon_path + "power1_average"):
             with open(self.hwmon_path + "power1_average") as hwmon_file:
                 power_uw = int(hwmon_file.readline())
                 time_n = datetime.utcnow()
                 self.power = int(power_uw)/1000000
                 delta_hrs = ((time_n - self.energy["tn"]).total_seconds())/3600
                 self.energy["tn"] = time_n
-                self.energy["cummulative"] += delta_hrs * power_uw/1000000000
+                self.energy["cumulative"] += delta_hrs * power_uw/1000000000
             hwmon_file.close()
         else:
             print("Error: HW file doesn't exist: %s" % (self.hwmon_path + "power1_average"), file=sys.stderr)
@@ -227,7 +225,7 @@ class GPU_ITEM:
 class GPU_LIST:
     def __init__(self):
         self.list = {}
-        devmap = {}
+        self.devmap = {}
         self.list["NONE"] = GPU_ITEM(uuid4().hex)
 
     def set_gpu_list(self):
@@ -315,16 +313,15 @@ class GPU_LIST:
             card_num = self.devmap[device_num]
         except:
             card_num = -1
-            return(self.list["NONE"])
+            return self.list["NONE"]
         print(f"Device {device_num} maps to card {card_num}")
 
-        for k,v in self.list.items():
+        for k, v in self.list.items():
             #if mb_const.DEBUG: print(f"Compare v.card_num: {v.card_num} to card_num: {card_num}")
             if v.card_num == card_num:
                 if mb_const.DEBUG: print(f"Device {device_num} maps to card {v.card_num}")
-                return(v)
-        return(self.list["NONE"])
-
+                return v
+        return self.list["NONE"]
 
 
 class BENCH_ENV:
@@ -431,10 +428,10 @@ class BENCH_ENV:
     
         # mode_run_name
         if len(args.run_name) > 0 and args.run_name.isprintable():
-                self.run_name = args.run_name.replace(' ','').replace('/','').replace('\\','')
+                self.run_name = args.run_name.replace(' ', '').replace('/', '').replace('\\', '')
         elif cfg_modes.mode_value("run_name") != None:
             if len(cfg_modes.mode_value("run_name")) > 0 and cfg_modes.mode_value("run_name").isprintable():
-                    self.run_name = cfg_modes.mode_value("run_name").replace(' ','').replace('/','').replace('\\','')
+                    self.run_name = cfg_modes.mode_value("run_name").replace(' ', '').replace('/', '').replace('\\', '')
     
         # mode_devmap
         specified_devmap = {}
@@ -471,11 +468,12 @@ class BENCH_ENV:
     
         # mode_num_repetitions
         if args.num_repetitions > 0: self.repetitions = args.num_repetitions
-        elif cfg_modes.mode_value("num_repetitions") != None : 
-            if int(cfg_modes.mode_value("num_repetitions")) > 0 : 
+        elif cfg_modes.mode_value("num_repetitions") != None:
+            if int(cfg_modes.mode_value("num_repetitions")) > 0:
                 self.repetitions = cfg_modes.mode_value("num_repetitions")
             else:
-                print("CFG: Invalid number of repetitions specified ["+ str(cfg_modes.mode_value("num_repetitions")) + "].  Ignoring...")
+                print("CFG: Invalid number of repetitions specified [" +
+                      str(cfg_modes.mode_value("num_repetitions")) + "].  Ignoring...")
         else:
             self.repetitions = 1
             #print("Invalid number of repetitions specified ["+ str(args.num_repetitions) + "].  Ignoring...")
@@ -484,8 +482,8 @@ class BENCH_ENV:
         # mode_max_threads
         self.specified_max_threads = -1
         if args.max_threads > 0: self.specified_max_threads = args.max_threads
-        elif cfg_modes.mode_value("max_threads") != None : 
-            if cfg_modes.mode_value("max_threads") > 0 : 
+        elif cfg_modes.mode_value("max_threads") != None:
+            if cfg_modes.mode_value("max_threads") > 0:
                 self.specified_max_threads = cfg_modes.mode_value("max_threads")
     
         # mode_max_gpus
@@ -497,64 +495,66 @@ class BENCH_ENV:
 
     def check_env(self):
         # Check python version
-        required_pversion = [3,6]
+        required_pversion = [3, 6]
         (python_major, python_minor, python_patch) = platform.python_version_tuple()
-        if mb_const.DEBUG: print("Using python " + python_major +"."+ python_minor +"."+ python_patch)
+        if mb_const.DEBUG: print("Using python " + python_major + "." + python_minor + "." + python_patch)
         if int(python_major) < required_pversion[0]:
             print("Using python" + python_major + ", but " + __program_name__ +
-                    " requires python " + str(required_pversion[0]) +"."+ str(required_pversion[1]) + " or higher.",
-                    file=sys.stderr)
-            return(-1)
+                  " requires python " + str(required_pversion[0]) + "." + str(required_pversion[1]) + " or higher.",
+                  file=sys.stderr)
+            return -1
         elif int(python_major) == required_pversion[0] and int(python_minor) < required_pversion[1]:
-            print("Using python " + python_major +"."+ python_minor +"."+ python_patch + ", but " + __program_name__ +
-                    " requires python " + str(required_pversion[0]) +"."+ str(required_pversion[1]) + " or higher.",
-                    file=sys.stderr)
-            return(-1)
+            print("Using python " + python_major + "." + python_minor + "." + python_patch + ", but " +
+                  __program_name__ + " requires python " + str(required_pversion[0]) + "." +
+                  str(required_pversion[1]) + " or higher.", file=sys.stderr)
+            return -1
 
         # Check Linux Kernel version
-        required_kversion = [4,8]
+        required_kversion = [4, 8]
         linux_version = platform.release()
         if int(linux_version.split(".")[0]) < required_kversion[0]:
-            print("Using Linux Kernel " +  linux_version + ", but " + __program_name__ + " requires > " +
-                    str(required_kversion[0]) +"."+ str(required_kversion[1]), file=sys.stderr)
-            return(-2)
-        elif int(linux_version.split(".")[0]) == required_kversion[0] and int(linux_version.split(".")[1]) < required_kversion[1]:
             print("Using Linux Kernel " + linux_version + ", but " + __program_name__ + " requires > " +
-                    str(required_kversion[0]) +"."+ str(required_kversion[1]), file=sys.stderr)
-            return(-2)
-        return(0)
+                  str(required_kversion[0]) + "." + str(required_kversion[1]), file=sys.stderr)
+            return -2
+        elif int(linux_version.split(".")[0]) == required_kversion[0] and \
+             int(linux_version.split(".")[1]) < required_kversion[1]:
+            print("Using Linux Kernel " + linux_version + ", but " + __program_name__ + " requires > " +
+                  str(required_kversion[0]) + "." + str(required_kversion[1]), file=sys.stderr)
+            return -2
+        return 0
 
     def check_amdgpu(self):
         # Check AMD GPU Driver Version
         lshw_out = subprocess.check_output(shlex.split('lshw -c video'), shell=False,
-                stderr=subprocess.DEVNULL).decode().split("\n")
+                                           stderr=subprocess.DEVNULL).decode().split("\n")
         for lshw_line in lshw_out:
             searchObj = re.search('configuration:', lshw_line)
-            if(searchObj != None):
+            if searchObj:
                 lineitems = lshw_line.split(sep=':')
                 driver_str = lineitems[1].strip()
                 searchObj = re.search('driver=amdgpu', driver_str)
-                if(searchObj != None):
+                if searchObj:
                     try:
                         with open(mb_const.featuremask) as fm_file:
                             self.amdfeaturemask = int(fm_file.readline())
-                            if self.amdfeaturemask == int(0xffff7fff) or self.amdfeaturemask == int(0xffffffff) :
+                            if self.amdfeaturemask == int(0xffff7fff) or self.amdfeaturemask == int(0xfffd7fff) or \
+                                                                         self.amdfeaturemask == int(0xffffffff):
                                 self.amdgpu_Flag = True
-                                return(self.amdgpu_Flag)
+                                return self.amdgpu_Flag
                             else:
                                 self.amdgpu_Flag = False
-                                return(self.amdgpu_Flag)
+                                return self.amdgpu_Flag
                     except:
                         self.amdgpu_Flag = False
-                        return(self.amdgpu_Flag)
+                        return self.amdgpu_Flag
                     self.amdgpu_Flag = None
-                    return(self.amdgpu_Flag)
+                    return self.amdgpu_Flag
                 else:
                     if mb_const.DEBUG: print(f"amdgpu-utils non-compatible driver: {driver_str}")
                     self.amdgpu_Flag = False
-                    return(self.amdgpu_Flag)
+                    return self.amdgpu_Flag
         self.amdgpu_Flag = None
-        return(self.amdgpu_Flag)
+        return self.amdgpu_Flag
 
     def set_env(self):
         """ Setup the working environment to run benchmarks
@@ -571,12 +571,12 @@ class BENCH_ENV:
         self.platform = platform.system() + " " + platform.release()
 
         # Check access to time command
-        if shutil.which("/usr/bin/time") == None:
+        if not shutil.which("/usr/bin/time"):
             print("OS Command [time] not found", file=sys.stderr)
             valid = False
 
         # Get OS details
-        if shutil.which("lsb_release") == None:
+        if not shutil.which("lsb_release"):
             print("OS Command [lsb_release] not found", file=sys.stderr)
             valid = False
         else:
@@ -596,7 +596,7 @@ class BENCH_ENV:
                 self.os_desc = "UNKNOWN"
 
         # Get CPU details
-        if shutil.which("lscpu") == None:
+        if not shutil.which("lscpu"):
             print("OS Command [lscpu] not found")
             valid = False
         else:
@@ -621,7 +621,7 @@ class BENCH_ENV:
                         lineItem = linestr.split(':')
                         cpu_mhz = lineItem[1].strip()
                         continue
-                if cpu_max_mhz == "" :
+                if cpu_max_mhz == "":
                    self.cpu_mhz = cpu_mhz
                 else :
                     self.cpu_mhz = cpu_max_mhz
@@ -651,15 +651,19 @@ class BENCH_ENV:
             print("OS Command [lshw] not found", file=sys.stderr)
             valid = False
         else:
-            gpu_cnt=0
+            gpu_cnt = 0
             gpu_str = ""
             cmd_str = 'lshw -short 2>/dev/null | grep display'
             try:
                 cmd = subprocess.Popen(cmd_str, shell=True, stdout=subprocess.PIPE)
                 for line in cmd.stdout:
                     linestr = line.decode("utf-8").strip()
+                    searchObj = re.search('ASPEED', linestr)
+                    if searchObj:
+                        # Skip server display graphics
+                        continue
                     searchObj = re.search('display', linestr)
-                    if(searchObj != None):
+                    if searchObj:
                         gpu_cnt += 1
                         lineItem = linestr.split('display')
                         if len(lineItem) > 1:
@@ -668,12 +672,12 @@ class BENCH_ENV:
                             gpu_str = gpu_str + "[UNKNOWN]"
                         continue
                 cmd.stdout.close()
-                self.total_gpu_count =  gpu_cnt
-                self.total_gpu_threads =  gpu_cnt
+                self.total_gpu_count = gpu_cnt
+                self.total_gpu_threads = gpu_cnt
                 for gi in range(0, gpu_cnt):
                     #self.total_gpu_devices[len(self.total_gpu_devices):] = [gi]
                     self.total_gpu_devices.append(int(gi))
-                self.gpu_str =  gpu_str
+                self.gpu_str = gpu_str
             except:
                 print("Error: can not determine GPU details", file=sys.stderr)
                 valid = False
@@ -698,7 +702,7 @@ class BENCH_ENV:
 
         # Check working directories
         if(os.path.isdir(self.workdir_path) == False): 
-            print("benchMT workdir Path [", self.workdir_path,"] doesn't exist, making...")
+            print("benchMT workdir Path [", self.workdir_path, "] doesn't exist, making...")
             os.mkdir(self.workdir_path)
             if(os.path.isdir(self.workdir_path) == False):
                 print("Failed to make benchMT workdir Path [", self.workdir_path,"]")
