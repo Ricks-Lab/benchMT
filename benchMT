@@ -226,7 +226,7 @@ class GPU_ITEM:
             hwmon_file.close()
         else:
             print("Error: HW file doesn't exist: %s" % (self.hwmon_path + "power1_average"), file=sys.stderr)
-            print("For card path: %s" % (self.card_path), file=sys.stderr)
+            print("For card path: %s" % self.card_path, file=sys.stderr)
 
 
 class GPU_LIST:
@@ -320,6 +320,13 @@ class GPU_LIST:
                     break
 
     def get_device_gpu(self, device_num):
+        """
+        A function that uses the devmap dictionary to lookup a BOINC Device number and uses the corresponding
+        card number to return the matching GPU.
+
+        :param int device_num:  An integer representing a BOINC Device number
+        :return GPU_ITEM:  Returns the GPU_ITEM which corresponds to the card number in devmap
+        """
         if not self.devmap:
             return None
         if device_num not in self.devmap:
@@ -341,8 +348,9 @@ class GPU_LIST:
 
     def get_card_number_list(self):
         """
-        :parameter self
-        :return Returns a list of valid GPU card numbers
+        This function returns a list of valid card numbers.
+
+        :return list: Returns a list of valid GPU card numbers
         """
         cnlist = []
         for k, v in self.list.items():
@@ -413,7 +421,13 @@ class BENCH_ENV:
         self.init_data_template_file = ""
 
     def process_options(self, args, cfg_modes):
+        """
+        This function takes command line arguments and configuration modes to determine
+        final operating mode of benchMT.  Command line args will over ride config file modes.
 
+        :param args:  Command line arguments
+        :param cfg_modes:  Config file modes
+        """
         # mode_yes
         if args.yes: self.mode_yes = True
         elif cfg_modes.mode_value("yes"): self.mode_yes = True
@@ -561,6 +575,11 @@ class BENCH_ENV:
         return 0
 
     def check_amdgpu(self):
+        """
+        Checks to see if amdgpu driver is installed and supports energy metrics.
+
+        :return bool:  Returns False or None if compatible AMDGPU Driver is not present or not detected.
+        """
         # Check AMD GPU Driver Version
         lshw_out = subprocess.check_output(shlex.split('lshw -c video'), shell=False,
                                            stderr=subprocess.DEVNULL).decode().split("\n")
@@ -597,8 +616,9 @@ class BENCH_ENV:
         """ Setup the working environment to run benchmarks
                 - Get time and system parameters
                 - Use standard subdirectory and filenames in the mb_const class
-                - Verify all required direcories and files exist
-            Return (logical) True if all files and directories exist, else False
+                - Verify all required directories and files exist
+            :rtype: bool
+            :return logical: True if all files and directories exist, else False
         """
         valid = True
         t = datetime.utcnow()
@@ -791,23 +811,20 @@ class BENCH_ENV:
         if not mb_const.noBS:
             self.boinccmd = os.path.join(self.boinc_home, mb_const.boinccmd)
             if not os.path.isfile(self.boinccmd):
-                print("boinccmd [", self.boinccmd,"] doesn't exist")
+                print("boinccmd [", self.boinccmd, "] doesn't exist")
                 valid = False
         if not os.path.isfile(self.init_data_template_file):
             print("init_data.xml_template file [", self.init_data_template_file, "] doesn't exist, creating...")
-            # fileptr = open(self.init_data_template_file, 'w')
             with open(self.init_data_template_file, 'w') as fileptr:
                 print("<app_init_data>", file=fileptr)
                 print("<app_name>setiathome_v8</app_name>", file=fileptr)
                 print("<project_dir>" + self.workdir_path + "</project_dir>", file=fileptr)
                 print("<boinc_dir>" + self.boinc_home + "</boinc_dir>", file=fileptr)
                 print("</app_init_data>", file=fileptr)
-            # fileptr.close()
         return valid
 
     def makedirs(self):
         """ Check existence of required directories and make if missing
-            Return (void) 
         """
         # Check/Make working directories
         if not os.path.isdir(self.cpu_app_path):
@@ -836,10 +853,12 @@ class BENCH_ENV:
         """return true if there is another instance running.  Check lock file for pid
         if there is a valid process with that pid, then there is a conflict.
 
-        if no conflict, then write current pid to lockfile and return false"""
+        if no conflict, then write current pid to lockfile and return false
+        :rtype: bool
+        """
         mypid = os.getpid()
         if not os.path.isfile(self.lockfile):
-            # no lockfile, so assume no conflict
+            # No lockfile, so assume no conflict
             with open(self.lockfile, 'w') as file_ptr:
                 print(str(mypid), file=file_ptr)
             return False
@@ -851,12 +870,12 @@ class BENCH_ENV:
                 try:
                     os.kill(pid, 0)
                 except OSError:
-                    # not running
+                    # Not running
                     with open(self.lockfile, 'w') as file_ptr:
                         print(str(mypid), file=file_ptr)
                     return False
                 else:
-                    # running
+                    # Running
                     return True
 
     @staticmethod
