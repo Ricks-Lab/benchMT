@@ -200,6 +200,13 @@ class GPU_ITEM:
         self.energy = {"t0": time_0, "tn": time_0, "cumulative": 0.0}
         self.power = -1
 
+    def print(self):
+        print('GPU_ITEM: uuid: {}'.format(self.uuid))
+        print('GPU_ITEM: model: {}'.format(self.model))
+        print('GPU_ITEM: card number: {}'.format(self.card_num))
+        print('GPU_ITEM: BOINC Device number: {}'.format(self.boinc_device_num))
+        print('GPU_ITEM: card path: {}'.format(self.card_path))
+
     def reset_energy(self):
         time_0 = datetime.utcnow()
         self.energy = {"t0": time_0, "tn": time_0, "cumulative": 0.0}
@@ -312,6 +319,8 @@ class GPU_LIST:
                     break
 
     def get_device_gpu(self, device_num):
+        if not self.devmap:
+            return None
         if device_num not in self.devmap:
             print('Error: Invalid device map, BOINC device number [{}] not in devmap [{}]'.format(device_num,
                                                                                                   self.devmap))
@@ -328,6 +337,18 @@ class GPU_LIST:
         print('       Card [{}] mapped to BOINC device number [{}] does not exist'.format(card_num, device_num))
         print('Exiting...')
         sys.exit(-1)
+
+    def get_card_number_list(self):
+        """
+        :parameter self
+        :return Returns a list of valid GPU card numbers
+        """
+        cnlist = []
+        for k, v in self.list.items():
+            if v.compatible and v.card_num >= 0:
+                if mb_const.DEBUG: v.print()
+                cnlist.append(v.card_num)
+        return cnlist
 
 
 class BENCH_ENV:
@@ -348,6 +369,8 @@ class BENCH_ENV:
         self.allocated_cthreads = 0
         self.allocated_gthreads = 0
         self.total_gpu_devices = []
+        self.boinc_dev_list = []
+        self.card_num_list = []
         self.specified_max_gpus = 0
         self.gpu_devices = []
         self.devmap = {}
@@ -497,7 +520,8 @@ class BENCH_ENV:
     
         # mode_max_gpus
         self.specified_max_gpus = -1
-        if args.max_gpus > 0: self.specified_max_gpus = args.max_gpus
+        if args.max_gpus > 0:
+            self.specified_max_gpus = args.max_gpus
         elif cfg_modes.mode_value("max_gpus"):
             if cfg_modes.mode_value("max_gpus") > 0:
                 self.specified_max_gpus = cfg_modes.mode_value("max_gpus")
@@ -656,6 +680,7 @@ class BENCH_ENV:
                 valid = False
 
         # Get GPU details
+        self.boinc_dev_list = []
         if not shutil.which("lshw"):
             print("OS Command [lshw] not found", file=sys.stderr)
             valid = False
@@ -673,6 +698,7 @@ class BENCH_ENV:
                         continue
                     searchObj = re.search('display', linestr)
                     if searchObj:
+                        self.boinc_dev_list.append(gpu_cnt)
                         gpu_cnt += 1
                         lineItem = linestr.split('display')
                         if len(lineItem) > 1:
@@ -732,7 +758,7 @@ class BENCH_ENV:
             print("REFERENCE RESULTS Path [", self.ref_results_path, "] doesn't exist")
             valid = False
         if not os.path.isdir(self.gpu_app_path):
-            print("GPU APP Path [", self.gpu_app_path,"] doesn't exist")
+            print("GPU APP Path [", self.gpu_app_path, "] doesn't exist")
             valid = False
         if not os.path.isdir(self.wu_path):
             print("WU Path [", self.wu_path, "] doesn't exist")
@@ -745,7 +771,7 @@ class BENCH_ENV:
         if not os.path.isfile(self.command_line_file):
             print("BenchCFG [", self.command_line_file, "] does not exist.")
             valid = False
-        return(valid)
+        return valid
 
     def set_env_boinc(self):
         valid = True
@@ -906,6 +932,8 @@ class BENCH_ENV:
         print("Total GPU Devices: ", str(self.total_gpu_devices), file=fileptr)
         print("Specified GPU Devices: ", str(self.gpu_devices), file=fileptr)
         print("Devices Map: ", str(self.devmap), file=fileptr)
+        print("BOINC Device List: ", str(self.boinc_dev_list), file=fileptr)
+        print("GPU Card Number List: ", str(self.card_num_list), file=fileptr)
         print("GPU Details: ", self.gpu_str, file=fileptr)
         print("Current Dir: ", self.current_dir, file=fileptr)
         print("Slots Dir: ", self.slots_path, file=fileptr)
@@ -1629,7 +1657,8 @@ class SLOTS_LIST:
         jobs.list[job_ID].slot = slot_ID
         jobs.list[job_ID].slot_dir = self.list[slot_ID].slot_dir
         jobs.list[job_ID].gpu_card = gpu_list.get_device_gpu(device)
-        jobs.list[job_ID].gpu_card.reset_energy()
+        if jobs.list[job_ID].gpu_card:
+            jobs.list[job_ID].gpu_card.reset_energy()
 
     def request_slot(self, platform):
         if platform == "REF": platform = "CPU"
@@ -1648,6 +1677,7 @@ class SLOTS_LIST:
         else:
             print(title)
 
+        i = 0
         print("SlotNum", "platform", "device", "state", "job", "SlotDir", sep=" | ")
         for i, (k, v) in enumerate(self.list.items(), start=1):
             slotnum_str = "-" + str(v.slot_num)
@@ -1853,6 +1883,8 @@ def main():
     # Check if Energy metric is possible
     gpu_list = GPU_LIST()
     gpu_list.set_gpu_list()
+    gpu_list.set_gpu_details()
+    env.card_num_list = gpu_list.get_card_number_list()
     gpu_list.devmap = env.devmap
     if args.energy:
         if env.check_amdgpu():
@@ -1939,11 +1971,14 @@ def main():
     slots.print(title="List of Initialized Slots")
 
     # Execute the joblist
-    num_available_pslots = slots.available_pslots()
+    # num_available_pslots = slots.available_pslots()
     num_pending_pjobs = joblist.pending_pjobs()
     num_pending_jobs = num_pending_pjobs["CPU"] + num_pending_pjobs["GPU"]
-    print("Pending jobs (CPU/GPU): ", num_pending_pjobs["CPU"],"/", num_pending_pjobs["GPU"])
+    print("Pending jobs (CPU/GPU): ", num_pending_pjobs["CPU"], "/", num_pending_pjobs["GPU"])
     print("Pending reference jobs: ", num_pending_pjobs["REF"])
+    if num_pending_jobs < 1:
+        print('No jobs to execute.  Exiting...')
+        sys.exit(1)
     if not env.mode_yes:
         if input("Execute listed jobs? [y/N]").lower() != 'y':
             sys.exit(1)
@@ -1994,7 +2029,7 @@ def main():
             for plat in platform_list:
                 if mb_const.DEBUG:
                     print("Platform: ", plat, "Total Pending Jobs: ", num_pending_jobs)
-                    print("Pending jobs (CPU/GPU/REF): ", num_pending_pjobs["CPU"],"/", num_pending_pjobs["GPU"],
+                    print("Pending jobs (CPU/GPU/REF): ", num_pending_pjobs["CPU"], "/", num_pending_pjobs["GPU"],
                           "/", num_pending_pjobs["REF"])
                     print("Available slots (CPU/GPU): ", num_available_pslots["CPU"], "/",
                           num_available_pslots["GPU"], "\n")
@@ -2038,7 +2073,7 @@ def main():
                     slots.list[slot_num].job.cmd = subprocess.Popen(shlex.split(cmd_str),
                                                                     shell=False, stderr=subprocess.PIPE)
                     if slots.list[slot_num].job.cmd.poll() is not None:
-                        # TODO not sure if this works since time function doesn't fail fast enough for this to be triggered
+                        # TODO not sure if this works since time doesn't fail fast enough for this to be triggered
                         slots.list[slot_num].job.complete_time = datetime.utcnow()
                         slots.list[slot_num].job.state = "COMPLETE"
                         slots.list[slot_num].job.exit_status = "ERROR"
