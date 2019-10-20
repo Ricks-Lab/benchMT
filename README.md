@@ -41,8 +41,11 @@
  files for each job run. A run name can be specified with the *--run_name* commane line option. This
  name will be included in the name of the testData subdirectory for the current run.
 
-## New on Master Branch  -  v1.6.1
+## New on Master Branch  -  v1.7.0
 * *--noBS* on the command line will allow benchMT to function without a boinc installation.
+* Ignore ASPEED server video cards.
+* Check devmap and give more details to help user understand mapping of BOINC Devices to Driver Card Numbers.
+* Improved code robustness and style.
 
 ## Development Plans and Known Limitations
 * Doesn't work in console of server install of Ubuntu.  Need to investigate this.
