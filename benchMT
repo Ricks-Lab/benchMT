@@ -251,7 +251,8 @@ class GPU_LIST:
 
     def set_gpu_details(self):
         pcie_ids = subprocess.check_output(
-            'lspci | grep -E \"^.*(VGA|Display).*\[AMD\/ATI\].*$\" | grep -Eo \"^([0-9a-fA-F]+:[0-9a-fA-F]+.[0-9a-fA-F])\"',
+            'lspci | grep -E \
+                     \"^.*(VGA|Display).*\[AMD\/ATI\].*$\" | grep -Eo \"^([0-9a-fA-F]+:[0-9a-fA-F]+.[0-9a-fA-F])\"',
             shell=True).decode().split()
         if mb_const.DEBUG: print("Found %s GPUs" % len(pcie_ids))
         for pcie_id in pcie_ids:
@@ -408,6 +409,8 @@ class BENCH_ENV:
         self.mode_noBS = False
         self.mode_astropulse = False
         self.boinc_home = mb_const.boinc_home
+        self.amdgpu_Flag = None
+        self.init_data_template_file = ""
 
     def process_options(self, args, cfg_modes):
 
@@ -526,7 +529,8 @@ class BENCH_ENV:
             if cfg_modes.mode_value("max_gpus") > 0:
                 self.specified_max_gpus = cfg_modes.mode_value("max_gpus")
 
-    def check_env(self):
+    @staticmethod
+    def check_env():
         # Check python version
         required_pversion = [3, 6]
         (python_major, python_minor, python_patch) = platform.python_version_tuple()
@@ -594,7 +598,7 @@ class BENCH_ENV:
                 - Get time and system parameters
                 - Use standard subdirectory and filenames in the mb_const class
                 - Verify all required direcories and files exist
-            Retrun (logical) True if all files and directories exist, else False
+            Return (logical) True if all files and directories exist, else False
         """
         valid = True
         t = datetime.utcnow()
@@ -655,8 +659,8 @@ class BENCH_ENV:
                         cpu_mhz = lineItem[1].strip()
                         continue
                 if cpu_max_mhz == "":
-                   self.cpu_mhz = cpu_mhz
-                else :
+                    self.cpu_mhz = cpu_mhz
+                else:
                     self.cpu_mhz = cpu_max_mhz
                 cmd.stdout.close()
             except:
@@ -710,7 +714,6 @@ class BENCH_ENV:
                 self.total_gpu_count = gpu_cnt
                 self.total_gpu_threads = gpu_cnt
                 for gi in range(0, gpu_cnt):
-                    #self.total_gpu_devices[len(self.total_gpu_devices):] = [gi]
                     self.total_gpu_devices.append(int(gi))
                 self.gpu_str = gpu_str
             except:
@@ -792,13 +795,14 @@ class BENCH_ENV:
                 valid = False
         if not os.path.isfile(self.init_data_template_file):
             print("init_data.xml_template file [", self.init_data_template_file, "] doesn't exist, creating...")
-            fileptr = open(self.init_data_template_file, 'w')
-            print("<app_init_data>", file=fileptr)
-            print("<app_name>setiathome_v8</app_name>", file=fileptr)
-            print("<project_dir>" + self.workdir_path + "</project_dir>", file=fileptr)
-            print("<boinc_dir>" + self.boinc_home + "</boinc_dir>", file=fileptr)
-            print("</app_init_data>", file=fileptr)
-            fileptr.close()
+            # fileptr = open(self.init_data_template_file, 'w')
+            with open(self.init_data_template_file, 'w') as fileptr:
+                print("<app_init_data>", file=fileptr)
+                print("<app_name>setiathome_v8</app_name>", file=fileptr)
+                print("<project_dir>" + self.workdir_path + "</project_dir>", file=fileptr)
+                print("<boinc_dir>" + self.boinc_home + "</boinc_dir>", file=fileptr)
+                print("</app_init_data>", file=fileptr)
+            # fileptr.close()
         return valid
 
     def makedirs(self):
@@ -836,29 +840,27 @@ class BENCH_ENV:
         mypid = os.getpid()
         if not os.path.isfile(self.lockfile):
             # no lockfile, so assume no conflict
-            file_ptr = open(self.lockfile, 'w')
-            print(str(mypid), file=file_ptr)
-            file_ptr.close()
+            with open(self.lockfile, 'w') as file_ptr:
+                print(str(mypid), file=file_ptr)
             return False
         else:
-            file_ptr = open(self.lockfile, 'r')
-            line = file_ptr.readline().strip()
-            file_ptr.close()
+            with open(self.lockfile, 'r') as file_ptr:
+                line = file_ptr.readline().strip()
             if line.isdigit():
                 pid = int(line)
                 try:
                     os.kill(pid, 0)
                 except OSError:
                     # not running
-                    file_ptr = open(self.lockfile, 'w')
-                    print(str(mypid), file=file_ptr)
-                    file_ptr.close()
+                    with open(self.lockfile, 'w') as file_ptr:
+                        print(str(mypid), file=file_ptr)
                     return False
                 else:
                     # running
                     return True
 
-    def is_boinc_running(self):
+    @staticmethod
+    def is_boinc_running():
         cmd_str = "ps -C boinc -o pid 2>/dev/null"
         try:
             cmd = subprocess.Popen(cmd_str, shell=True, stdout=subprocess.PIPE)
@@ -950,7 +952,7 @@ class BENCH_ENV:
         print("Repetitions: ", self.repetitions, file=fileptr)
         print("Allocated CPU Threads: ", self.allocated_cthreads, file=fileptr)
         print("Allocated GPU Threads: ", self.allocated_gthreads, file=fileptr)
-        #Print Modes
+        # Print Modes
         print("Mode %s: %s" %("yes", self.mode_yes), file=fileptr)
         print("Mode %s: %s" %("noBS", self.mode_noBS), file=fileptr)
         print("Mode %s: %s" %("std_signals", self.mode_std_signals), file=fileptr)
@@ -970,10 +972,10 @@ class BENCH_JOB:
         self.start_time = "not started"
         self.complete_time = "not started"
         self.exit_status = ""
-        self.state = "PENDING"              #PENDING, ACTIVE, COMPLETE
+        self.state = "PENDING"              # PENDING, ACTIVE, COMPLETE
         self.app_name = ""
         self.app_args = ""
-        self.platform = "UNKNOWN"           #UNKNOWN, CPU, GPU
+        self.platform = "UNKNOWN"           # UNKNOWN, CPU, GPU
         self.wu_name = "not assigned"
         self.wu_path = "not assigned"
         self.error = ""
@@ -1032,52 +1034,52 @@ class JOB_LIST:
 
     def read_benchcfg(self, env, modes):
         """ read the default benchCFG file or one specified by user on command line.  Extract 
-        modes, app_names and app_args"""
-        clfptr = open(env.command_line_file, 'r')
-        for line in clfptr:
-            line = line.strip()
-            if len(line) == 0: continue
-            if line[0] == '#': continue
-            if len(line) <2: continue
-            lineitems = line.split(maxsplit=1)
+            modes, app_names and app_args
+        """
+        with open(env.command_line_file, 'r') as clfptr:
+            for line in clfptr:
+                line = line.strip()
+                if len(line) == 0: continue
+                if line[0] == '#': continue
+                if len(line) <2: continue
+                lineitems = line.split(maxsplit=1)
 
-            # check if entry is a mode item
-            if lineitems[0] == "mode":
-                modeitems = lineitems[1].split(maxsplit=2)
-                if len(modeitems) < 2: continue
-                # process mode
-                mode_name = modeitems[0].strip()
-                mode_value = modeitems[1].strip()
-                if not modes.set_mode(mode_name, mode_value):
-                    print("Invalid mode specified in CFG file: [", mode_name, "][", mode_value, "]", sep='')
+                # check if entry is a mode item
+                if lineitems[0] == "mode":
+                    modeitems = lineitems[1].split(maxsplit=2)
+                    if len(modeitems) < 2: continue
+                    # process mode
+                    mode_name = modeitems[0].strip()
+                    mode_value = modeitems[1].strip()
+                    if not modes.set_mode(mode_name, mode_value):
+                        print("Invalid mode specified in CFG file: [", mode_name, "][", mode_value, "]", sep='')
+                    else:
+                        print("Read valid mode from CFG file: [", mode_name, "][", mode_value, "]", sep='')
+                    continue
+
+                # process appname and apparg
+                job = BENCH_JOB(uuid4().hex)
+                job.app_name = lineitems[0]
+                if len(lineitems) > 1:
+                    argstr = lineitems[1]
+                    searchObj = re.search(r'[-]+[dD]evice\s+[0-9]+', argstr)
+                    if searchObj:
+                        argstr = re.sub(r'[-]+[dD]evice\s+[0-9]+', '', argstr)
+                        print(lineitems[1])
+                        print("Removed [-device X] argument as conflicts with slot assignment process")
+                        print(argstr)
+                    job.app_args = argstr
                 else:
-                    print("Read valid mode from CFG file: [", mode_name, "][", mode_value, "]", sep='')
-                continue
+                    job.app_args = ""
 
-            # process appname and apparg
-            job = BENCH_JOB(uuid4().hex)
-            job.app_name = lineitems[0]
-            if len(lineitems) > 1:
-                argstr = lineitems[1]
-                searchObj = re.search(r'[-]+[dD]evice\s+[0-9]+', argstr)
-                if(searchObj != None):
-                    argstr = re.sub(r'[-]+[dD]evice\s+[0-9]+', '', argstr)
-                    print(lineitems[1])
-                    print("Removed [-device X] argument as conflicts with slot assignment process")
-                    print(argstr)
-                job.app_args = argstr
-            else:
-                job.app_args = ""
-
-            # print(env.cpu_app_path + job.app_name)
-            if os.path.isfile(env.cpu_app_path + job.app_name):
-                job.platform = "CPU"
-            elif os.path.isfile(env.gpu_app_path + job.app_name):
-                job.platform = "GPU"
-            else:
-                job.platform = "UNKNOWN"
-            self.list[job.uuid] = job
-        clfptr.close
+                # print(env.cpu_app_path + job.app_name)
+                if os.path.isfile(env.cpu_app_path + job.app_name):
+                    job.platform = "CPU"
+                elif os.path.isfile(env.gpu_app_path + job.app_name):
+                    job.platform = "GPU"
+                else:
+                    job.platform = "UNKNOWN"
+                self.list[job.uuid] = job
 
     def read_wu_list(self, env):
         """Prepare a list of WUs based on the contents of the wu_path or std_signal_path
@@ -1175,7 +1177,7 @@ class JOB_LIST:
             print("│".ljust(5, ' '), " ".ljust(4, ' '), " ".ljust(3, ' '), "app_args".ljust(60, ' '),
                   "wu_name".ljust(38, ' ') + "│", file=fileptr, sep="│")
 
-        for k, v in self.list.items() :
+        for k, v in self.list.items():
             if v.slot == -1:
                 slot_str = " NA"
             else:
@@ -1244,12 +1246,12 @@ class JOB_LIST:
             print(v.wu_name, file=fileptr)
 
     def psv_print(self, env, fileptr=sys.stdout):
-        print("Host","RunName", "CPU","CPU-MHz", "JobID", "Platform", "app_name", "app_args", "wu_name", "angle_range",
-                "spike_cnt", "autocorr_cnt", "pulse_cnt", "triplet_cnt", "gaussian_cnt", "start_time", "complete_time",
-                "elapsed_time", "real_time", "user_time", "sys_time", "energy", "maxmem", "swapnum", "ctxswt", "majpf",
-                "state", "Q", "similarity", "error", file=fileptr, sep="|")
+        print("Host", "RunName", "CPU", "CPU-MHz", "JobID", "Platform", "app_name", "app_args", "wu_name",
+              "angle_range", "spike_cnt", "autocorr_cnt", "pulse_cnt", "triplet_cnt", "gaussian_cnt", "start_time",
+              "complete_time", "elapsed_time", "real_time", "user_time", "sys_time", "energy", "maxmem", "swapnum",
+              "ctxswt", "majpf", "state", "Q", "similarity", "error", file=fileptr, sep="|")
         for k, v in self.list.items():
-            if (v.state == "ACTIVE" or v.state == "COMPLETE") and v.start_time != "NA" :
+            if (v.state == "ACTIVE" or v.state == "COMPLETE") and v.start_time != "NA":
                 start_time_str = v.start_time.strftime('%H:%M:%S')
             else:
                 start_time_str = "SKIPPED"
@@ -1349,13 +1351,13 @@ class JOB_LIST:
                         v.exit_status = es
                         if env.mode_energy:
                             if v.platform == "GPU":
-                                v.energy = round(v.gpu_card.get_energy(),6)
+                                v.energy = round(v.gpu_card.get_energy(), 6)
                         if v.exit_status != 0:
                             v.error = v.error + "[Job Execution error]"
                             print("ERROR: time returned non zero.  Job execution error")
                             print("ERROR: time returned non zero.  Job execution error", file=env.sum_file_ptr)
 
-                        if v.platform != "REF" :
+                        if v.platform != "REF":
                             # Read results of time from the subprocess
                             for line in v.cmd.stderr:
                                 linestr = line.decode("utf-8").strip()
@@ -1423,46 +1425,45 @@ class JOB_LIST:
 
                                 try:
                                     if os.path.isfile(cur_result_file):
-                                        resfptr = open(cur_result_file, 'r')
-                                        for line in resfptr:
-                                            linestr = line.strip()
-                                            if len(linestr) == 0: continue
-                                            if linestr[0] == '#': continue
-                                            if len(linestr) <2: continue
-                                            if v.angle_range == 0:
-                                                searchObj = re.search('true_angle_range', linestr)
+                                        with open(cur_result_file, 'r') as resfptr:
+                                            for line in resfptr:
+                                                linestr = line.strip()
+                                                if len(linestr) == 0: continue
+                                                if linestr[0] == '#': continue
+                                                if len(linestr) <2: continue
+                                                if v.angle_range == 0:
+                                                    searchObj = re.search('true_angle_range', linestr)
+                                                    if searchObj:
+                                                        lineItem = linestr.split('true_angle_range')
+                                                        ar_str = re.sub(r'[^\d.]', '', lineItem[1])
+                                                        print("Angle Range: ["+ar_str + "]")
+                                                        v.angle_range = float(ar_str)
+                                                        continue
+                                                searchObj = re.search(r'<spike>', linestr)
                                                 if searchObj:
-                                                    lineItem = linestr.split('true_angle_range')
-                                                    ar_str = re.sub(r'[^\d.]', '', lineItem[1])
-                                                    print("Angle Range: ["+ar_str + "]")
-                                                    v.angle_range = float(ar_str)
+                                                    v.cnt_spike += 1
                                                     continue
-                                            searchObj = re.search(r'<spike>', linestr)
-                                            if searchObj:
-                                                v.cnt_spike += 1
-                                                continue
-                                            searchObj = re.search(r'<autocorr>', linestr)
-                                            if searchObj:
-                                                v.cnt_autocorr += 1
-                                                continue
-                                            searchObj = re.search(r'<pulse>', linestr)
-                                            if searchObj:
-                                                v.cnt_pulse += 1
-                                                continue
-                                            searchObj = re.search(r'<triplet>', linestr)
-                                            if searchObj:
-                                                v.cnt_triplet += 1
-                                                continue
-                                            searchObj = re.search(r'<gaussian>', linestr)
-                                            if searchObj:
-                                                v.cnt_gaussian += 1
-                                                continue
-                                        resfptr.close()
+                                                searchObj = re.search(r'<autocorr>', linestr)
+                                                if searchObj:
+                                                    v.cnt_autocorr += 1
+                                                    continue
+                                                searchObj = re.search(r'<pulse>', linestr)
+                                                if searchObj:
+                                                    v.cnt_pulse += 1
+                                                    continue
+                                                searchObj = re.search(r'<triplet>', linestr)
+                                                if searchObj:
+                                                    v.cnt_triplet += 1
+                                                    continue
+                                                searchObj = re.search(r'<gaussian>', linestr)
+                                                if searchObj:
+                                                    v.cnt_gaussian += 1
+                                                    continue
                                 except:
-                                    print("Fatal error in reading results.  Are you running AP benchmarks and not in astropulse mode?")
+                                    print("Fatal error in reading results.")
+                                    print("    Are you running AP benchmarks and not in astropulse mode?")
 
                                 # write to run log
-                                #print("=".ljust(80, "="), file=env.sum_file_ptr)
                                 print("App Name: ", v.app_name, file=env.sum_file_ptr)
                                 print("App Args: ", v.app_args, file=env.sum_file_ptr)
                                 print("WU Name:  ", v.wu_name, file=env.sum_file_ptr)
@@ -1485,7 +1486,7 @@ class JOB_LIST:
                                 print("MajPF:       ", v.time_majpf, file=env.sum_file_ptr)
                                 if env.mode_energy:
                                     if v.platform == "GPU":
-                                        print("Energy:       %s kWh" %(v.energy), file=env.sum_file_ptr)
+                                        print("Energy:       %s kWh" % (v.energy), file=env.sum_file_ptr)
                                 print("", file=env.sum_file_ptr)
     
                                 if ref_result_file != "" and not env.mode_astropulse:
@@ -1524,7 +1525,6 @@ class JOB_LIST:
                             else:
                                 print("ERROR: can not open results file: ", cur_result_file)
                                 # write to run log
-                                #print("=".ljust(80, "="), file=env.sum_file_ptr)
                                 print("ERROR: can not open results file: ", cur_result_file, file=env.sum_file_ptr)
                                 print("App Name: ", v.app_name, file=env.sum_file_ptr)
                                 print("App Args: ", v.app_args, file=env.sum_file_ptr)
@@ -1541,7 +1541,7 @@ class JOB_LIST:
                                 print("MajPF:       ", v.time_majpf, file=env.sum_file_ptr)
                                 print("", file=env.sum_file_ptr)
 
-                        else: # v.platform == REF
+                        else:  # v.platform == REF
                             # Move results file to testData or testData/REF_RESULTS
                             ref_app_name = v.app_name.replace('ref-cpu.', '')
                             dest_file = env.ref_results_path + "/ref-result." + ref_app_name + "." + v.wu_name + ".sah"
@@ -1579,9 +1579,9 @@ class SLOTS:
         self.slot_num = item_id
         self.slot_dir = ""
         self.device = -1
-        self.platform = ""              #GPU, CPU
-        self.job = ""                   #Job uuid
-        self.state = "EMPTY"            #EMPTY, ACTIVE
+        self.platform = ""              # GPU, CPU
+        self.job = ""                   # Job uuid
+        self.state = "EMPTY"            # EMPTY, ACTIVE
         self.gpu_card = None
 
 
@@ -1760,26 +1760,46 @@ class SLOTS_LIST:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--about", help="README", action="store_true", default=False)
-    parser.add_argument("-y", "--yes", help="Don't ask confirmation before running jobs", action="store_true", default=False)
-    parser.add_argument("--cfg_file", help="Specify name alternative CFG file", type=str, default="BenchCFG")
-    parser.add_argument("--run_name", help="Specify name of this run", type=str, default="")
-    parser.add_argument("--boinc_home", help="Specify path for BOINC", type=str, default="")
-    parser.add_argument("--noBS", help="Do not suspend BOINC", action="store_true", default=False)
-    parser.add_argument("--display_compact", help="Display compact run status", action="store_true", default=False)
-    parser.add_argument("--display_slots", help="Display run status by slots instead of jobs", action="store_true", default=False)
-    parser.add_argument("--num_repetitions", help="Specify number of times to run benchmark", type=int, default=0)
-    parser.add_argument("--max_threads", help="Specify max number of threads to load", type=int, default=0)
-    parser.add_argument("--max_gpus", help="Specify max number of GPUs to load", type=int, default=0)
-    parser.add_argument("--gpu_devices", help="Specify which GPUs to use: 0,1,2", type=str, default="")
-    parser.add_argument("--devmap", help="Specify mapping of boinc device to card #: {B:C,B:C}", type=str, default="")
-    parser.add_argument("--energy", help="Report energy usage (amdgpu driver only)", action="store_true", default=False)
-    parser.add_argument("--astropulse", help="Run in AstroPulse mode", action="store_true", default=False)
-    parser.add_argument("--std_signals", help="Use standard signal WUs instead of Test WUs", action="store_true", default=False)
-    parser.add_argument("--no_ref", help="Do not generate reference results", action="store_true", default=False)
-    parser.add_argument("--force_ref", help="Force generation of reference results", action="store_true", default=False)
-    parser.add_argument("--admin_mkdirs", help="Make required directories", action="store_true", default=False)
-    parser.add_argument("-d", "--debug", help="Debug output", action="store_true", default=False)
+    parser.add_argument("--about", help="README",
+                        action="store_true", default=False)
+    parser.add_argument("-y", "--yes", help="Don't ask confirmation before running jobs",
+                        action="store_true", default=False)
+    parser.add_argument("--cfg_file", help="Specify name alternative CFG file",
+                        type=str, default="BenchCFG")
+    parser.add_argument("--run_name", help="Specify name of this run",
+                        type=str, default="")
+    parser.add_argument("--boinc_home", help="Specify path for BOINC",
+                        type=str, default="")
+    parser.add_argument("--noBS", help="Do not suspend BOINC",
+                        action="store_true", default=False)
+    parser.add_argument("--display_compact", help="Display compact run status",
+                        action="store_true", default=False)
+    parser.add_argument("--display_slots", help="Display run status by slots instead of jobs",
+                        action="store_true", default=False)
+    parser.add_argument("--num_repetitions", help="Specify number of times to run benchmark",
+                        type=int, default=0)
+    parser.add_argument("--max_threads", help="Specify max number of threads to load",
+                        type=int, default=0)
+    parser.add_argument("--max_gpus", help="Specify max number of GPUs to load",
+                        type=int, default=0)
+    parser.add_argument("--gpu_devices", help="Specify which GPUs to use: 0,1,2",
+                        type=str, default="")
+    parser.add_argument("--devmap", help="Specify mapping of boinc device to card #: {B:C,B:C}",
+                        type=str, default="")
+    parser.add_argument("--energy", help="Report energy usage (amdgpu driver only)",
+                        action="store_true", default=False)
+    parser.add_argument("--astropulse", help="Run in AstroPulse mode",
+                        action="store_true", default=False)
+    parser.add_argument("--std_signals", help="Use standard signal WUs instead of Test WUs",
+                        action="store_true", default=False)
+    parser.add_argument("--no_ref", help="Do not generate reference results",
+                        action="store_true", default=False)
+    parser.add_argument("--force_ref", help="Force generation of reference results",
+                        action="store_true", default=False)
+    parser.add_argument("--admin_mkdirs", help="Make required directories",
+                        action="store_true", default=False)
+    parser.add_argument("-d", "--debug", help="Debug output",
+                        action="store_true", default=False)
     args = parser.parse_args()
 
     if args.about:
@@ -1855,13 +1875,15 @@ def main():
             env.gpu_devices = env.total_gpu_devices
 
     # Allocate appropriate CPU threads
-    if env.specified_max_threads > 0 and env.specified_max_threads < env.total_cpu_threads :
+    # if env.specified_max_threads > 0 and env.specified_max_threads < env.total_cpu_threads:
+    if 0 < env.specified_max_threads < env.total_cpu_threads:
         env.allocated_cthreads = env.specified_max_threads
     else:
         env.allocated_cthreads = env.total_cpu_threads
 
     # Allocate appropriate GPU threads
-    if env.specified_max_gpus > 0 and env.specified_max_gpus < env.total_gpu_threads :
+    # if env.specified_max_gpus > 0 and env.specified_max_gpus < env.total_gpu_threads:
+    if 0 < env.specified_max_gpus < env.total_gpu_threads:
         env.allocated_gthreads = env.specified_max_gpus
     else:
         env.allocated_gthreads = env.total_gpu_threads
@@ -1870,7 +1892,8 @@ def main():
     if len(env.gpu_devices) == env.allocated_gthreads:
         print("Set specified gpu_devices: ", str(env.gpu_devices))
     elif len(env.gpu_devices) < env.allocated_gthreads:
-        print("Mismatch with allocated GPUS [%d], reset allocated devices to %d" % (env.allocated_gthreads, len(env.gpu_devices)))
+        print("Mismatch with allocated GPUS [%d], reset allocated devices to %d" %
+              (env.allocated_gthreads, len(env.gpu_devices)))
         env.allocated_gthreads = len(env.gpu_devices)
     else:
         print("Specified more GPUS [%d], than allocated [%d]" % (len(env.gpu_devices), env.allocated_gthreads))
@@ -1931,7 +1954,8 @@ def main():
     # Create a final job list from the applist and wulist and append reflist
     joblist = JOB_LIST()
     joblist.create_job_list(applist, wulist, env)
-    if not env.mode_no_ref: joblist.append_job_list(reflist)
+    if not env.mode_no_ref:
+        joblist.append_job_list(reflist)
     joblist.print(title="Final Job List")
 
     # Prepare working slots
@@ -1964,6 +1988,7 @@ def main():
     if env.is_bench_conflict():
         print("Another instance of benchMT is running in this directory, exiting...")
         sys.exit(-1)
+
     slots = SLOTS_LIST()
     slots.create_slot_list(env.allocated_cthreads)
     if not slots.initialize_slots(env, num_gpu_slots):
@@ -2053,15 +2078,19 @@ def main():
                     if plat == "GPU":
                         device_arg = " -device " + str(slots.list[slot_num].device) + " "
                         slots.list[slot_num].job.app_args = device_arg + slots.list[slot_num].job.app_args 
-                        cmd_str = env.gpu_app_path + slots.list[slot_num].job.app_name + " " + slots.list[slot_num].job.app_args
+                        cmd_str = env.gpu_app_path + slots.list[slot_num].job.app_name + \
+                                  " " + slots.list[slot_num].job.app_args
                     elif plat == "CPU":
-                        cmd_str = env.cpu_app_path + slots.list[slot_num].job.app_name + " " + slots.list[slot_num].job.app_args
+                        cmd_str = env.cpu_app_path + slots.list[slot_num].job.app_name + \
+                                  " " + slots.list[slot_num].job.app_args
                     else:
-                        cmd_str = env.ref_app_path + slots.list[slot_num].job.app_name + " " + slots.list[slot_num].job.app_args
+                        cmd_str = env.ref_app_path + slots.list[slot_num].job.app_name + \
+                                  " " + slots.list[slot_num].job.app_args
                     if mb_const.DEBUG: print(cmd_str)
 
-                    # execute job with time command
-                    cmd_str = '/usr/bin/time -f \"Real=%e|User=%U|System=%S|MaxMem=%M|SwapNum=%W|CtxSwt=%c|MajPF=%F\" ' + cmd_str
+                    # Execute job with time command
+                    cmd_str = '/usr/bin/time -f \"Real=%e|User=%U|System=%S|MaxMem=%M|SwapNum=%W|CtxSwt=%c|MajPF=%F\" '\
+                              + cmd_str
                     if mb_const.DEBUG:
                         print("\n\nRun Details")
                         print("Final command: " + cmd_str)
@@ -2098,7 +2127,7 @@ def main():
         # This is the part where we wait for jobs to complete
         num_pending_jobs = joblist.count_pending_pjobs(platform_list)
         if num_pending_jobs == 0:
-            # wait for all jobs to finish
+            # Wait for all jobs to finish
             if platform_list[0] == "REF":
                 wait_str = "REF"
             else:
@@ -2111,12 +2140,12 @@ def main():
                     slots.print_activity(joblist, env.mode_display_compact)
                 else:
                     joblist.print(env.mode_display_compact)
-            # no more pending jobs and all active jobs complete
+            # No more pending jobs and all active jobs complete
             if platform_list[0] == "REF":
                 if mb_const.DEBUG: print("Switching platforms")
                 platform_list = ["CPU", "GPU"]
         else:
-            # wait for appropriate slot to be available
+            # Wait for appropriate slot to be available
             num_available_pslots = slots.available_pslots()
             num_pending_pjobs = joblist.pending_pjobs()
             for plat in platform_list:
@@ -2130,7 +2159,7 @@ def main():
         if mb_const.DEBUG: print(num_pending_jobs)
         if joblist.all_complete():
             break
-        # end of while True
+        # End of while True
 
     if not mb_const.DEBUG: os.system('clear')
     if env.mode_display_slots:
@@ -2139,7 +2168,7 @@ def main():
         joblist.print(env.mode_display_compact)
     if mb_const.DEBUG: slots.print()
 
-    # finalize reports
+    # Finalize reports
     joblist.print(fileptr=env.sum_file_ptr)
     joblist.psv_print(env, fileptr=env.psv_file_ptr)
 
@@ -2150,7 +2179,7 @@ def main():
 
     complete_time = datetime.utcnow()
     print("Finish Time: " + complete_time.strftime('%c'), file=env.sum_file_ptr)
-    print("BenchMT run complete. Results location: %s" % (env.summary_path))
+    print("BenchMT run complete. Results location: %s" % env.summary_path)
     print("")
 
     # close files 
