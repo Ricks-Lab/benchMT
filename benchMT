@@ -103,6 +103,7 @@ class MB_CONST:
         self.activeAPWU = "in.dat"
         self.DEBUG = False
         self.noBS = False
+        self.env = None
 
         # Items required for AMD Energy feature
         self.featuremask = "/sys/module/amdgpu/parameters/ppfeaturemask"
@@ -319,6 +320,18 @@ class GPU_LIST:
                             v.model_short = model_short
                     break
 
+    def set_devmap(self, devmap, bd_list, cn_list):
+        self.devmap = devmap
+        ret_value = True
+        for k, v in devmap.items():
+            if k not in bd_list:
+                print('Error in devmap: BOINC Device {} not in valid BOINC Devices [{}]'.format(k, bd_list))
+                ret_value = False
+            if v not in cn_list:
+                print('Error in devmap: Card Number {} not in valid Driver Card Numbers [{}]'.format(v, cn_list))
+                ret_value = False
+        return ret_value
+
     def get_device_gpu(self, device_num):
         """
         A function that uses the devmap dictionary to lookup a BOINC Device number and uses the corresponding
@@ -333,6 +346,7 @@ class GPU_LIST:
             print('Error: Invalid device map, BOINC device number [{}] not in devmap [{}]'.format(device_num,
                                                                                                   self.devmap))
             print('Exiting...')
+            mb_const.env.resume_boinc()
             sys.exit(-1)
         card_num = self.devmap[device_num]
 
@@ -344,6 +358,7 @@ class GPU_LIST:
         print('Error: Invalid device map [{}] BOINC Device to GPU Card num'.format(device_num))
         print('       Card [{}] mapped to BOINC device number [{}] does not exist'.format(card_num, device_num))
         print('Exiting...')
+        mb_const.env.resume_boinc()
         sys.exit(-1)
 
     def get_card_number_list(self):
@@ -1837,6 +1852,7 @@ def main():
 
     # Initialize and verify working environment
     env = BENCH_ENV()
+    mb_const.env = env
     # Check OS and python version
     if env.check_env() < 0:
         print("Error in environment. Exiting...")
@@ -1927,7 +1943,10 @@ def main():
     gpu_list.set_gpu_list()
     gpu_list.set_gpu_details()
     env.card_num_list = gpu_list.get_card_number_list()
-    gpu_list.devmap = env.devmap
+    # gpu_list.devmap = env.devmap
+    if not gpu_list.set_devmap(env.devmap, env.boinc_dev_list, env.card_num_list):
+        print('Error in devmap. Exiting...')
+        sys.exit(-1)
     if args.energy:
         if env.check_amdgpu():
             print("GPU Energy metrics enabled")
