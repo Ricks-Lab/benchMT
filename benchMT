@@ -842,6 +842,18 @@ class BENCH_ENV:
                 print("</app_init_data>", file=fileptr)
         return valid
 
+    def purge_workdir_cache(self):
+        if not os.path.isdir(self.workdir_path):
+            print("benchMT workdir Path [", self.workdir_path, "] doesn't exist, can not purge cache...")
+        else:
+            print("Purging cached kernels from: [", self.workdir_path, "]")
+        for file_str in glob.glob(self.workdir_path + "MB_clFFTplan*"):
+            os.remove(file_str)
+            print('Removed: {}'.format(file_str))
+        for file_str in glob.glob(self.workdir_path + "MultiBeam_Kernels*.cl[0-9,a-z,A-Z]*"):
+            os.remove(file_str)
+            print('Removed: {}'.format(file_str))
+
     def makedirs(self):
         """ Check existence of required directories and make if missing
         """
@@ -1834,6 +1846,8 @@ def main():
                         action="store_true", default=False)
     parser.add_argument("--force_ref", help="Force generation of reference results",
                         action="store_true", default=False)
+    parser.add_argument("--purge_kernels", help="Purge Cached Kernels from working directory",
+                        action="store_true", default=False)
     parser.add_argument("--admin_mkdirs", help="Make required directories",
                         action="store_true", default=False)
     parser.add_argument("-d", "--debug", help="Debug output",
@@ -1869,6 +1883,9 @@ def main():
             sys.exit(0)
         print("Error in environment.  Exiting...")
         sys.exit(-1)
+
+    if args.purge_kernels:
+        env.purge_workdir_cache()
 
     # Check existence of Configuration File
     if len(args.cfg_file) > 0:

@@ -46,6 +46,8 @@
 * Ignore ASPEED server video cards.
 * Check devmap and give more details to help user understand mapping of BOINC Devices to Driver Card Numbers.
 * Improved code robustness and style.
+* Added command line option to purge cached kernel files from working directory.
+* More robust error handling when determining PCId IDs with lspci.
 
 ## Development Plans and Known Limitations
 * Doesn't work in console of server install of Ubuntu.  Need to investigate this.
