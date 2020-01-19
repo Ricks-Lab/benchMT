@@ -293,8 +293,6 @@ class GPU_ITEM:
 class GPU_LIST:
     def __init__(self):
         self.list = {}
-        self.lspci_stat = False
-        self.lshw_stat = False
         self.devmap = {}
 
     def print(self):
@@ -313,6 +311,45 @@ class GPU_LIST:
         :return: Returns false since not implemented
         :rtype: bool
         """
+        # Get GPU details
+        # This is the original code but needs to be modified to build a GPU_LIST
+        self.boinc_dev_list = []
+        if not shutil.which('lshw'):
+            print('OS Command [lshw] not found', file=sys.stderr)
+            valid = False
+        else:
+            gpu_cnt = 0
+            gpu_str = ''
+            cmd_str = 'lshw -short 2>/dev/null | grep display'
+            try:
+                cmd = subprocess.Popen(cmd_str, shell=True, stdout=subprocess.PIPE)
+                for line in cmd.stdout:
+                    linestr = line.decode('utf-8').strip()
+                    searchObj = re.search('ASPEED', linestr)
+                    if searchObj:
+                        # Skip server display graphics
+                        continue
+                    searchObj = re.search('display', linestr)
+                    if searchObj:
+                        self.boinc_dev_list.append(gpu_cnt)
+                        gpu_cnt += 1
+                        lineItem = linestr.split('display')
+                        if len(lineItem) > 1:
+                            gpu_str = gpu_str + ' [' + lineItem[1].strip() + ']'
+                        else:
+                            gpu_str = gpu_str + '[UNKNOWN]'
+                        continue
+                cmd.stdout.close()
+                self.total_gpu_count = gpu_cnt
+                self.total_gpu_threads = gpu_cnt
+                for gi in range(0, gpu_cnt):
+                    self.total_gpu_devices.append(int(gi))
+                self.gpu_str = gpu_str
+                if mb_const.DEBUG: print('BOINC Device List: [{}]'.format(self.boinc_dev_list))
+            except:
+                print('Error: can not determine GPU details', file=sys.stderr)
+                valid = False
+        #return True
         return False
 
     def set_lspci_gpu_list(self):
@@ -367,10 +404,18 @@ class GPU_LIST:
             searchObj = re.search(r'(INTEL|intel|Intel)', gpu_name)
             if searchObj:
                 vendor = 'INTEL'
-                compute = True
+                searchObj = re.search(r'( 530)', gpu_name)
+                if searchObj:
+                    compute = False
+                else:
+                    compute = True
             searchObj = re.search(r'(ASPEED|aspeed|Aspeed)', gpu_name)
             if searchObj:
                 vendor = 'ASPEED'
+                compute = False
+            searchObj = re.search(r'(MATROX|matrox|Matrox)', gpu_name)
+            if searchObj:
+                vendor = 'MATROX'
                 compute = False
 
             # Get Driver Name
@@ -455,17 +500,43 @@ class GPU_LIST:
         mb_const.env.resume_boinc()
         sys.exit(-1)
 
-    def get_card_number_list(self):
+    def set_env_boinc_GPU_details(self, env):
         """
-        This function returns a list of valid card numbers.
+        Set the remaining env parameters after GPU details are read.
+        :param env:  The execution environment
+        :type env: BENCH_ENV
+        :return:  None
+        """
+        env.total_gpu_threads = env.total_gpu_count = len(self.get_card_number_list(compute=True))
+        env.total_gpu_devices = []
+        for gi in range(0, env.total_gpu_count):
+            env.total_gpu_devices.append(int(gi))
+        # TODO Need to eliminate one of the below lists
+        env.boinc_dev_list = env.total_gpu_devices[:]
 
-        :return list: Returns a list of valid GPU card numbers
+    def get_card_number_list(self, compute=False, energy=False):
+        """
+        This function returns a list of all valid card numbers. If compute is true, then only compute
+        compatible cards are returned.  If energy is true then only compute compatible GPUs with energy capability
+        are returned.
+
+        :return: Returns a list of valid GPU card numbers
+        :rtype: list
         """
         cnlist = []
         for k, v in self.list.items():
-            if v.compute_compatible and v.card_num >= 0:
-                if mb_const.DEBUG: v.print()
-                cnlist.append(v.card_num)
+            if v.card_num >= 0:
+                if compute:
+                    if v.compute_compatible:
+                        if mb_const.DEBUG: v.print()
+                        cnlist.append(v.card_num)
+                elif energy:
+                    if v.compute_compatible and v.energy_compatible:
+                        if mb_const.DEBUG: v.print()
+                        cnlist.append(v.card_num)
+                else:
+                    cnlist.append(v.card_num)
+        #print('cnlist: {}'.format(cnlist))
         return cnlist
 
 
@@ -486,7 +557,7 @@ class BENCH_ENV:
         self.total_gpu_count = 0
         self.allocated_cthreads = 0
         self.allocated_gthreads = 0
-        self.total_gpu_devices = []
+        self.total_gpu_devices = []   # TODO total_gpu_devices and boinc_dev_list are redundant
         self.boinc_dev_list = []
         self.card_num_list = []
         self.specified_max_gpus = 0
@@ -724,8 +795,8 @@ class BENCH_ENV:
                 - Get time and system parameters
                 - Use standard subdirectory and filenames in the mb_const class
                 - Verify all required directories and files exist
+            :return: True if all files and directories exist, else False
             :rtype: bool
-            :return logical: True if all files and directories exist, else False
         """
         valid = True
         t = datetime.utcnow()
@@ -808,44 +879,6 @@ class BENCH_ENV:
                 cmd.stdout.close()
             except:
                 print('Error: can not determine CPU core details', file=sys.stderr)
-                valid = False
-
-        # Get GPU details
-        self.boinc_dev_list = []
-        if not shutil.which('lshw'):
-            print('OS Command [lshw] not found', file=sys.stderr)
-            valid = False
-        else:
-            gpu_cnt = 0
-            gpu_str = ''
-            cmd_str = 'lshw -short 2>/dev/null | grep display'
-            try:
-                cmd = subprocess.Popen(cmd_str, shell=True, stdout=subprocess.PIPE)
-                for line in cmd.stdout:
-                    linestr = line.decode('utf-8').strip()
-                    searchObj = re.search('ASPEED', linestr)
-                    if searchObj:
-                        # Skip server display graphics
-                        continue
-                    searchObj = re.search('display', linestr)
-                    if searchObj:
-                        self.boinc_dev_list.append(gpu_cnt)
-                        gpu_cnt += 1
-                        lineItem = linestr.split('display')
-                        if len(lineItem) > 1:
-                            gpu_str = gpu_str + ' [' + lineItem[1].strip() + ']'
-                        else:
-                            gpu_str = gpu_str + '[UNKNOWN]'
-                        continue
-                cmd.stdout.close()
-                self.total_gpu_count = gpu_cnt
-                self.total_gpu_threads = gpu_cnt
-                for gi in range(0, gpu_cnt):
-                    self.total_gpu_devices.append(int(gi))
-                self.gpu_str = gpu_str
-                if mb_const.DEBUG: print('BOINC Device List: [{}]'.format(self.boinc_dev_list))
-            except:
-                print('Error: can not determine GPU details', file=sys.stderr)
                 valid = False
 
         # Set working directories
@@ -1997,6 +2030,13 @@ def main():
     env.process_options(args, cfg_modes)
     if mb_const.DEBUG: cfg_modes.print()
 
+    # Initialize list of all GPUs
+    gpu_list = GPU_LIST()
+    gpu_list.set_gpu_list()
+    gpu_list.print()
+    gpu_list.set_env_boinc_GPU_details(env)
+    env.card_num_list = gpu_list.get_card_number_list(compute=True)
+
     # If energy reporting option is set, verify that device mapping is also set
     if env.mode_energy:
         if len(env.devmap) != env.total_gpu_threads:
@@ -2048,29 +2088,29 @@ def main():
         print('Error in BOINC environment.  Exiting...')
         sys.exit(-1)
 
-    # Check if Energy metric is possible
-    gpu_list = GPU_LIST()
-    gpu_list.set_gpu_list()
-    gpu_list.print()
-    sys.exit(0)
-    gpu_list.set_gpu_details()
-    env.card_num_list = gpu_list.get_card_number_list()
-    # gpu_list.devmap = env.devmap
+    #sys.exit(0)
+    #gpu_list.devmap = env.devmap
     if not gpu_list.set_devmap(env.devmap, env.boinc_dev_list, env.card_num_list):
         print('Error in devmap. Exiting...')
         sys.exit(-1)
     if args.energy:
+        num_eng_gpu = len(gpu_list.get_card_number_list(energy=True))
+        if num_eng_gpu:
+            print('GPU Energy metrics enabled for {} GPUs.'.format(num_eng_gpu))
+        else:
+            print('GPU Energy metrics not possible, disabling them.')
+            env.mode_energy = False
+
         if env.check_amdgpu():
             print('GPU Energy metrics enabled')
             env.mode_energy = True
-            gpu_list.set_gpu_list()
-            gpu_list.set_gpu_details()
         else:
             print('GPU Energy metrics not possible, disabling them.')
             env.mode_energy = False
 
     # Print the final view of the execution environment
     env.print()
+    #sys.exit(0)
 
     # Create a list of WUs to be processed
     wulist = JOB_LIST()
