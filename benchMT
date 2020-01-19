@@ -399,9 +399,14 @@ class GPU_LIST:
             elif len(hw_file_srch) == 1:
                 hwmon_path = hw_file_srch[0] + '/'
 
+            if hwmon_path:
+                hw_power_file = os.path.join(hwmon_path, 'power1_average')
+                if os.path.isfile(hw_power_file):
+                    with open(hw_power_file) as hwmon_file:
+                        power_uw = int(hwmon_file.readline())
+                        print('power reading for {}: {}'.format(pcie_id, power_uw))
+                        energy = True
             if vendor == 'AMD':
-                if os.path.isfile(os.path.join(card_path, 'pp_od_clk_voltage')):
-                    energy = True
                 if gpu_name == 'Radeon Fiji Pro Duo':
                     energy = False
 
