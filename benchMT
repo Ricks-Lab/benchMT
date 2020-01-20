@@ -219,11 +219,14 @@ class GPU_ITEM:
         self.driver = ''
         self.energy_compatible = False
         self.compute_compatible = False
+        self.ocl_device_name = None
+        self.ocl_device_version = None
         time_0 = datetime.utcnow()
         self.energy = {'t0': time_0, 'tn': time_0, 'cumulative': 0.0}
         self.power = -1
 
-    def populate(self, pcie_id, gpu_name, vendor, driver_module, card_path, hwmon_path, energy, compute):
+    def populate(self, pcie_id, gpu_name, vendor, driver_module, card_path, hwmon_path,
+                 energy, compute, ocl_dev, ocl_ver):
         self.pcie_id = pcie_id
         self.model = gpu_name
         self.vendor = vendor
@@ -233,6 +236,8 @@ class GPU_ITEM:
         self.hwmon_path = hwmon_path
         self.energy_compatible = energy
         self.compute_compatible = compute
+        self.ocl_device_name = ocl_dev
+        self.ocl_device_version = ocl_ver
 
     def print(self):
         """
@@ -245,6 +250,8 @@ class GPU_ITEM:
         print('      model: {}'.format(self.model))
         print('      vendor: {}'.format(self.vendor))
         print('      driver: {}'.format(self.driver))
+        print('      openCL Device: {}'.format(self.ocl_device_name))
+        print('      openCL Version: {}'.format(self.ocl_device_version))
         print('      card number: {}'.format(self.card_num))
         print('      BOINC Device number: {}'.format(self.boinc_device_num))
         print('      card path: {}'.format(self.card_path))
@@ -294,6 +301,7 @@ class GPU_LIST:
     def __init__(self):
         self.list = {}
         self.devmap = {}
+        self.opencl_map = {}
 
     def print(self):
         for k, v in self.list.items():
@@ -304,6 +312,47 @@ class GPU_LIST:
 
     def set_gpu_list(self):
         return self.set_lspci_gpu_list()
+
+    def read_gpu_opencl_data(self):
+        # Check access to clinfo command
+        if not shutil.which('/usr/bin/clinfo'):
+            print('OS Command [clinfo] not found.  Use sudo apt-get install clinfo to install', file=sys.stderr)
+            return False
+        cmd = subprocess.Popen(shlex.split('/usr/bin/clinfo --raw'), shell=False, stdout=subprocess.PIPE)
+        ocl_pcie_id = ''
+        ocl_device_name = ''
+        ocl_device_version = ''
+        for line in cmd.stdout:
+            linestr = line.decode('utf-8').strip()
+            if len(linestr) < 1:
+                continue
+            if linestr[0] != '[':
+                continue
+            linestr = re.sub(r'   [ ]*', ':-:', linestr)
+            searchObj = re.search('CL_DEVICE_NAME', linestr)
+            if searchObj:
+                # Found a new device
+                lineItem = linestr.split(':-:')
+                ocl_device_name = lineItem[2].strip()
+                #print('ocl_device_name [{}]'.format(ocl_device_name))
+                continue
+            searchObj = re.search('CL_DEVICE_VERSION', linestr)
+            if searchObj:
+                lineItem = linestr.split(':-:')
+                ocl_device_version = lineItem[2].strip()
+                #print('ocl_device_version [{}]'.format(ocl_device_version))
+                continue
+            searchObj = re.search('CL_DEVICE_TOPOLOGY_AMD', linestr)
+            if searchObj:
+                lineItem = linestr.split(':-:')
+                ocl_pcie_id = (lineItem[2].split()[1]).strip()
+                #print('ocl_pcie_id [{}]'.format(ocl_pcie_id))
+                self.opencl_map.update({ocl_pcie_id: [ocl_device_name, ocl_device_version]})
+                ocl_pcie_id = ''
+                ocl_device_name = ''
+                ocl_device_version = ''
+                continue
+        return True
 
     def set_lshw_gpu_list(self):
         """
@@ -361,6 +410,8 @@ class GPU_LIST:
         """
         if not shutil.which('lspci'):
             return False
+        self.read_gpu_opencl_data()
+        print(self.opencl_map)
 
         try:
             pcie_ids = subprocess.check_output('lspci | grep -E \
@@ -393,10 +444,19 @@ class GPU_LIST:
 
             # Get GPU brand: AMD, INTEL, NVIDIA, ASPEED
             vendor = 'UNKNOWN'
+            opencl_device_name = None
+            opencl_device_version = None
             searchObj = re.search(r'(AMD|amd|ATI|ati)', gpu_name)
             if searchObj:
                 vendor = 'AMD'
-                compute = True
+                compute = False
+                if self.opencl_map:
+                    if pcie_id in self.opencl_map.keys():
+                        opencl_device_name = self.opencl_map[pcie_id][0]
+                        opencl_device_version = self.opencl_map[pcie_id][1]
+                        compute = True
+                else:
+                    compute = True
             searchObj = re.search(r'(NVIDIA|nvidia|nVidia)', gpu_name)
             if searchObj:
                 vendor = 'NVIDIA'
@@ -404,11 +464,18 @@ class GPU_LIST:
             searchObj = re.search(r'(INTEL|intel|Intel)', gpu_name)
             if searchObj:
                 vendor = 'INTEL'
-                searchObj = re.search(r'( 530)', gpu_name)
-                if searchObj:
-                    compute = False
+                compute = False
+                if self.opencl_map:
+                    if pcie_id in self.opencl_map.keys():
+                        opencl_device_name = self.opencl_map[pcie_id][0]
+                        opencl_device_version = self.opencl_map[pcie_id][1]
+                        compute = True
                 else:
-                    compute = True
+                    searchObj = re.search(r' 530', gpu_name)
+                    if searchObj:
+                        compute = False
+                    else:
+                        compute = True
             searchObj = re.search(r'(ASPEED|aspeed|Aspeed)', gpu_name)
             if searchObj:
                 vendor = 'ASPEED'
@@ -456,7 +523,8 @@ class GPU_LIST:
                     energy = False
 
             self.list[gpu_uuid].populate(pcie_id, gpu_name, vendor, driver_module,
-                                         card_path, hwmon_path, energy, compute)
+                                         card_path, hwmon_path, energy, compute,
+                                         opencl_device_name, opencl_device_version)
         return True
 
     def set_devmap(self, devmap, bd_list, cn_list):
@@ -597,7 +665,6 @@ class BENCH_ENV:
         self.mode_noBS = False
         self.mode_astropulse = False
         self.boinc_home = mb_const.boinc_home
-        self.amdgpu_Flag = None
         self.init_data_template_file = ''
 
     def process_options(self, args, cfg_modes):
@@ -751,44 +818,6 @@ class BENCH_ENV:
                   str(required_kversion[0]) + '.' + str(required_kversion[1]), file=sys.stderr)
             return -2
         return 0
-
-    def check_amdgpu(self):
-        """
-        Checks to see if amdgpu driver is installed and supports energy metrics.
-
-        :return bool:  Returns False or None if compatible AMDGPU Driver is not present or not detected.
-        """
-        # Check AMD GPU Driver Version
-        lshw_out = subprocess.check_output(shlex.split('lshw -c video'), shell=False,
-                                           stderr=subprocess.DEVNULL).decode().split('\n')
-        for lshw_line in lshw_out:
-            searchObj = re.search('configuration:', lshw_line)
-            if searchObj:
-                lineitems = lshw_line.split(sep=':')
-                driver_str = lineitems[1].strip()
-                searchObj = re.search('driver=amdgpu', driver_str)
-                if searchObj:
-                    try:
-                        with open(mb_const.featuremask) as fm_file:
-                            self.amdfeaturemask = int(fm_file.readline())
-                            if self.amdfeaturemask == int(0xffff7fff) or self.amdfeaturemask == int(0xfffd7fff) or \
-                                                                         self.amdfeaturemask == int(0xffffffff):
-                                self.amdgpu_Flag = True
-                                return self.amdgpu_Flag
-                            else:
-                                self.amdgpu_Flag = False
-                                return self.amdgpu_Flag
-                    except:
-                        self.amdgpu_Flag = False
-                        return self.amdgpu_Flag
-                    self.amdgpu_Flag = None
-                    return self.amdgpu_Flag
-                else:
-                    if mb_const.DEBUG: print(f'amdgpu-utils non-compatible driver: {driver_str}')
-                    self.amdgpu_Flag = False
-                    return self.amdgpu_Flag
-        self.amdgpu_Flag = None
-        return self.amdgpu_Flag
 
     def set_env(self):
         """ Setup the working environment to run benchmarks
@@ -1970,6 +1999,8 @@ def main():
                         action='store_true', default=False)
     parser.add_argument('--purge_kernels', help='Purge Cached Kernels from working directory',
                         action='store_true', default=False)
+    parser.add_argument('--lsgpu', help='List GPU details',
+                        action='store_true', default=False)
     parser.add_argument('--admin_mkdirs', help='Make required directories',
                         action='store_true', default=False)
     parser.add_argument('-d', '--debug', help='Debug output',
@@ -2033,7 +2064,9 @@ def main():
     # Initialize list of all GPUs
     gpu_list = GPU_LIST()
     gpu_list.set_gpu_list()
-    gpu_list.print()
+    if args.lsgpu:
+        gpu_list.print()
+        sys.exit(0)
     gpu_list.set_env_boinc_GPU_details(env)
     env.card_num_list = gpu_list.get_card_number_list(compute=True)
 
@@ -2101,7 +2134,7 @@ def main():
             print('GPU Energy metrics not possible, disabling them.')
             env.mode_energy = False
 
-        if env.check_amdgpu():
+        if len(gpu_list.get_card_number_list(energy=True)):
             print('GPU Energy metrics enabled')
             env.mode_energy = True
         else:
