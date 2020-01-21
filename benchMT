@@ -819,29 +819,35 @@ class BENCH_ENV:
             return -2
 
         # Check access/paths to system commands
-        """
-        if not env.cmd_lspci = shutil.which('lspci'):
+        command_access_fail = False
+        env.cmd_lspci = shutil.which('lspci')
+        if not env.cmd_lspci:
             print('OS command [lspci] executable not found.')
             command_access_fail = True
-        if not env.cmd_lshw = shutil.which('lshw'):
+        env.cmd_lshw = shutil.which('lshw')
+        if not env.cmd_lshw:
             print('OS command [lshw] executable not found.')
             command_access_fail = True
-        if not env.cmd_lscpu = shutil.which('lscpu')
+        env.cmd_lscpu = shutil.which('lscpu')
+        if not env.cmd_lscpu:
             print('OS command [lscpu] executable not found.')
             command_access_fail = True
-        if not env.cmd_clinfo = shutil.which('clinfo')
+        env.cmd_clinfo = shutil.which('clinfo')
+        if not env.cmd_clinfo:
             print('Package addon [clinfo] executable not found.')
-        if not env.cmd_time = shutil.which('time')
+        env.cmd_time = shutil.which('time')
+        if not env.cmd_time:
             print('OS command [time] executable not found.')
             command_access_fail = True
-        if not env.cmd_nvidia-smi = shutil.which('nvidia-smi')
+        env.cmd_nvidia_smi = shutil.which('nvidia-smi')
+        if not env.cmd_nvidia_smi:
             print('Package addon [nvidia-smi] executable not found.')
-        if not env.cmd_lsb_release = shutil.which('lsb_release')
+        env.cmd_lsb_release = shutil.which('lsb_release')
+        if not env.cmd_lsb_release:
             print('OS command [lsb_release] executable not found.')
             command_access_fail = True
         if command_access_file:
             return -3
-        """
         return 0
 
     def set_env(self):
