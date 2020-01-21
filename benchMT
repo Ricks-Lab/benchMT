@@ -322,18 +322,25 @@ class GPU_ITEM:
         :return: None
         :rtype: None
         """
-        if os.path.isfile(self.hwmon_path + 'power1_average'):
-            with open(self.hwmon_path + 'power1_average') as hwmon_file:
-                power_uw = int(hwmon_file.readline())
-                time_n = datetime.utcnow()
-                self.power = int(power_uw)/1000000
-                delta_hrs = ((time_n - self.energy['tn']).total_seconds())/3600
-                self.energy['tn'] = time_n
-                self.energy['cumulative'] += delta_hrs * power_uw/1000000000
-            hwmon_file.close()
-        else:
-            print('Error: HW file does not exist: %s' % (self.hwmon_path + 'power1_average'), file=sys.stderr)
-            print('For card path: %s' % self.card_path, file=sys.stderr)
+        if not self.energy_compatible:
+            return False
+        if self.vendor == 'AMD'
+            if os.path.isfile(self.hwmon_path + 'power1_average'):
+                with open(self.hwmon_path + 'power1_average') as hwmon_file:
+                    power_uw = int(hwmon_file.readline())
+                    time_n = datetime.utcnow()
+                    self.power = int(power_uw)/1000000
+                    delta_hrs = ((time_n - self.energy['tn']).total_seconds())/3600
+                    self.energy['tn'] = time_n
+                    self.energy['cumulative'] += delta_hrs * power_uw/1000000000
+                return True
+            else:
+                print('Error: HW file does not exist: %s' % (self.hwmon_path + 'power1_average'), file=sys.stderr)
+                print('For card path: %s' % self.card_path, file=sys.stderr)
+                return False
+        elif self.vendor == 'NVIDIA':
+            pass
+        return False
 
 
 class GPU_LIST:
@@ -354,10 +361,10 @@ class GPU_LIST:
 
     def read_gpu_opencl_data(self):
         # Check access to clinfo command
-        if not shutil.which('/usr/bin/clinfo'):
+        if not mb_const.cmd_clinfo:
             print('OS Command [clinfo] not found.  Use sudo apt-get install clinfo to install', file=sys.stderr)
             return False
-        cmd = subprocess.Popen(shlex.split('/usr/bin/clinfo --raw'), shell=False, stdout=subprocess.PIPE)
+        cmd = subprocess.Popen(shlex.split('{} --raw'.format(mb_const.cmd_clinfo)), shell=False, stdout=subprocess.PIPE)
         ocl_pcie_id = ''
         ocl_device_name = ''
         ocl_device_version = ''
@@ -402,13 +409,13 @@ class GPU_LIST:
         # Get GPU details
         # This is the original code but needs to be modified to build a GPU_LIST
         self.boinc_dev_list = []
-        if not shutil.which('lshw'):
+        if not mb_const.cmd_lshw:
             print('OS Command [lshw] not found', file=sys.stderr)
             valid = False
         else:
             gpu_cnt = 0
             gpu_str = ''
-            cmd_str = 'lshw -short 2>/dev/null | grep display'
+            cmd_str = '{} -short 2>/dev/null | grep display'.format(mb_const.cmd_lshw)
             try:
                 cmd = subprocess.Popen(cmd_str, shell=True, stdout=subprocess.PIPE)
                 for line in cmd.stdout:
@@ -447,14 +454,14 @@ class GPU_LIST:
         :return: True on success
         :rtype: bool
         """
-        if not shutil.which('lspci'):
+        if not mb_const.cmd_lspci:
             return False
         self.read_gpu_opencl_data()
         print(self.opencl_map)
 
         try:
-            pcie_ids = subprocess.check_output('lspci | grep -E \
-                     \"^.*(VGA|3D|Display).*$\" | grep -Eo \"^([0-9a-fA-F]+:[0-9a-fA-F]+.[0-9a-fA-F])\"',
+            pcie_ids = subprocess.check_output('{} | grep -E \
+                     \"^.*(VGA|3D|Display).*$\" | grep -Eo \"^([0-9a-fA-F]+:[0-9a-fA-F]+.[0-9a-fA-F])\"'.format(mb_const.cmd_lspci),
                      shell=True).decode().split()
         except:
             print('lspci failed to find GPUs')
@@ -466,7 +473,7 @@ class GPU_LIST:
             self.add(GPU_ITEM(gpu_uuid))
             if mb_const.DEBUG: print('GPU: ', pcie_id)
             energy = compute = False
-            lspci_items = subprocess.check_output('lspci -k -s ' + pcie_id, shell=True).decode().split('\n')
+            lspci_items = subprocess.check_output('{} -k -s {}'.format(mb_const.cmd_lspci, pcie_id), shell=True).decode().split('\n')
             if mb_const.DEBUG: print(lspci_items)
 
             # Get Long GPU Name
@@ -905,16 +912,16 @@ class BENCH_ENV:
         self.platform = platform.system() + ' ' + platform.release()
 
         # Check access to time command
-        if not shutil.which('/usr/bin/time'):
-            print('OS Command [time] not found', file=sys.stderr)
-            valid = False
+        #if not shutil.which('/usr/bin/time'):
+            #print('OS Command [time] not found', file=sys.stderr)
+            #valid = False
 
         # Get OS details
-        if not shutil.which('lsb_release'):
+        if not mb_const.cmd_lsb_release:
             print('OS Command [lsb_release] not found', file=sys.stderr)
             valid = False
         else:
-            cmd_str = 'lsb_release -a 2>/dev/null'
+            cmd_str = '{} -a 2>/dev/null'.format(mb_const.cmd_lsb_release)
             try:
                 cmd = subprocess.Popen(cmd_str, shell=True, stdout=subprocess.PIPE)
                 for line in cmd.stdout:
@@ -930,12 +937,12 @@ class BENCH_ENV:
                 self.os_desc = 'UNKNOWN'
 
         # Get CPU details
-        if not shutil.which('lscpu'):
+        if not mb_const.cmd_lscpu:
             print('OS Command [lscpu] not found')
             valid = False
         else:
             cpu_max_mhz = ''
-            cmd_str = 'lscpu 2>/dev/null'
+            cmd_str = '{} 2>/dev/null'.format(mb_const.cmd_lscpu)
             try:
                 cmd = subprocess.Popen(cmd_str, shell=True, stdout=subprocess.PIPE)
                 for line in cmd.stdout:
@@ -967,7 +974,7 @@ class BENCH_ENV:
                 cpu_mhz = 'UNKNOWN'
 
             # Get CPU details
-            cmd_str = 'lscpu -e 2>/dev/null | tail -1'
+            cmd_str = '{} -e 2>/dev/null | tail -1'.format(mb_const.cmd_lscpu)
             try:
                 cmd = subprocess.Popen(cmd_str, shell=True, stdout=subprocess.PIPE)
                 for line in cmd.stdout:
@@ -2193,8 +2200,7 @@ def main():
         print('Error in BOINC environment.  Exiting...')
         sys.exit(-1)
 
-    #sys.exit(0)
-    #gpu_list.devmap = env.devmap
+    # Setup for Energy mode and devmap
     if not gpu_list.set_devmap(env.devmap, env.boinc_dev_list, env.card_num_list):
         print('Error in devmap. Exiting...')
         sys.exit(-1)
@@ -2383,8 +2389,10 @@ def main():
                     if mb_const.DEBUG: print(cmd_str)
 
                     # Execute job with time command
-                    cmd_str = '/usr/bin/time -f \"Real=%e|User=%U|System=%S|MaxMem=%M|SwapNum=%W|CtxSwt=%c|MajPF=%F\" '\
+                    #cmd_str = '/usr/bin/time -f \"Real=%e|User=%U|System=%S|MaxMem=%M|SwapNum=%W|CtxSwt=%c|MajPF=%F\" '\
                               + cmd_str
+                    cmd_str = '{} -f \"Real=%e|User=%U|System=%S|MaxMem=%M|SwapNum=%W|CtxSwt=%c|MajPF=%F\" {}'.format(
+                              mb_const.cmd_time, cmd_str)
                     if mb_const.DEBUG:
                         print('\n\nRun Details')
                         print('Final command: ' + cmd_str)
