@@ -61,7 +61,7 @@ __copyright__ = 'Copyright (C) 2018 RueiKe'
 __credits__ = ['Keith Myers - Testing and Verification']
 __license__ = 'GNU General Public License'
 __program_name__ = 'benchMT'
-__version__ = 'v1.7.0'
+__version__ = 'v2.0.0'
 __maintainer__ = 'RueiKe'
 __status__ = 'Under Development - Testing only, please use official release.'
 
@@ -104,12 +104,51 @@ class MB_CONST:
         self.DEBUG = False
         self.noBS = False
         self.env = None
-
-        # Items required for AMD Energy feature
-        self.featuremask = '/sys/module/amdgpu/parameters/ppfeaturemask'
-        self.amdgpu_flag = None
+        # Items required for Energy feature
         self.card_root = '/sys/class/drm/'
         self.hwmon_sub = 'hwmon/hwmon'
+        # System command definitions
+        self.cmd_lspci = None
+        self.cmd_lshw = None
+        self.cmd_lscpu = None
+        self.cmd_clinfo = None
+        self.cmd_time = None
+        self.cmd_lsb_release = None
+        self.cmd_nvidia_smi = None
+
+    def print(self):
+        print('mb_const.boinc_home: [{}]'.format(self.boinc_home))
+        print('mb_const.cpu_app_subdir: [{}]'.format(self.cpu_app_subdir))
+        print('mb_const.gpu_app_subdir: [{}]'.format(self.gpu_app_subdir))
+        print('mb_const.ref_app_subdir: [{}]'.format(self.ref_app_subdir))
+        print('mb_const.ref_results_subdir: [{}]'.format(self.ref_results_subdir))
+        print('mb_const.wu_subdir: [{}]'.format(self.wu_subdir))
+        print('mb_const.std_signal_subdir: [{}]'.format(self.std_signal_subdir))
+        print('mb_const.testdata_subdir: [{}]'.format(self.testdata_subdir))
+        print('mb_const.workdir_subdir: [{}]'.format(self.workdir_subdir))
+        print('mb_const.slots_subdir: [{}]'.format(self.slots_subdir))
+        print('mb_const.command_line_filename: [{}]'.format(self.command_line_filename))
+        print('mb_const.boinccmd: [{}]'.format(self.boinccmd))
+        print('mb_const.template_file: [{}]'.format(self.template_file))
+        print('mb_const.wu_cmp: [{}]'.format(self.wu_cmp))
+        print('mb_const.suspend_args: [{}]'.format(self.suspend_args))
+        print('mb_const.resume_args: [{}]'.format(self.resume_args))
+        print('mb_const.activeWU: [{}]'.format(self.activeWU))
+        print('mb_const.activeAPWU: [{}]'.format(self.activeAPWU))
+        print('mb_const.DEBUG: [{}]'.format(self.DEBUG))
+        print('mb_const.noBS: [{}]'.format(self.noBS))
+        print('mb_const.env: [{}]'.format(self.env))
+        # Items required for Energy feature
+        print('mb_const.card_root: [{}]'.format(self.card_root))
+        print('mb_const.hwmon_sub: [{}]'.format(self.hwmon_sub))
+        # System command definitions
+        print('mb_const.cmd_lspci: [{}]'.format(self.cmd_lspci))
+        print('mb_const.cmd_lshw: [{}]'.format(self.cmd_lshw))
+        print('mb_const.cmd_lscpu: [{}]'.format(self.cmd_lscpu))
+        print('mb_const.cmd_clinfo: [{}]'.format(self.cmd_clinfo))
+        print('mb_const.cmd_time: [{}]'.format(self.cmd_time))
+        print('mb_const.cmd_lsb_release: [{}]'.format(self.cmd_lsb_release))
+        print('mb_const.cmd_nvidia_smi: [{}]'.format(self.cmd_nvidia_smi))
 
 
 mb_const = MB_CONST()
@@ -246,18 +285,18 @@ class GPU_ITEM:
         :rtype: None
         """
         print('GPU_ITEM: uuid: {}'.format(self.uuid))
-        print('      pcie_id: {}'.format(self.pcie_id))
-        print('      model: {}'.format(self.model))
-        print('      vendor: {}'.format(self.vendor))
-        print('      driver: {}'.format(self.driver))
-        print('      openCL Device: {}'.format(self.ocl_device_name))
-        print('      openCL Version: {}'.format(self.ocl_device_version))
-        print('      card number: {}'.format(self.card_num))
-        print('      BOINC Device number: {}'.format(self.boinc_device_num))
-        print('      card path: {}'.format(self.card_path))
-        print('      hwmon path: {}'.format(self.hwmon_path))
-        print('      Compute compatible: {}'.format(self.compute_compatible))
-        print('      Energy compatible: {}'.format(self.energy_compatible))
+        print('    pcie_id: {}'.format(self.pcie_id))
+        print('    model: {}'.format(self.model))
+        print('    vendor: {}'.format(self.vendor))
+        print('    driver: {}'.format(self.driver))
+        print('    openCL Device: {}'.format(self.ocl_device_name))
+        print('    openCL Version: {}'.format(self.ocl_device_version))
+        print('    card number: {}'.format(self.card_num))
+        print('    BOINC Device number: {}'.format(self.boinc_device_num))
+        print('    card path: {}'.format(self.card_path))
+        print('    hwmon path: {}'.format(self.hwmon_path))
+        print('    Compute compatible: {}'.format(self.compute_compatible))
+        print('    Energy compatible: {}'.format(self.energy_compatible))
 
     def reset_energy(self):
         """
@@ -820,33 +859,33 @@ class BENCH_ENV:
 
         # Check access/paths to system commands
         command_access_fail = False
-        env.cmd_lspci = shutil.which('lspci')
-        if not env.cmd_lspci:
+        mb_const.cmd_lspci = shutil.which('lspci')
+        if not mb_const.cmd_lspci:
             print('OS command [lspci] executable not found.')
             command_access_fail = True
-        env.cmd_lshw = shutil.which('lshw')
-        if not env.cmd_lshw:
+        mb_const.cmd_lshw = shutil.which('lshw')
+        if not mb_const.cmd_lshw:
             print('OS command [lshw] executable not found.')
             command_access_fail = True
-        env.cmd_lscpu = shutil.which('lscpu')
-        if not env.cmd_lscpu:
+        mb_const.cmd_lscpu = shutil.which('lscpu')
+        if not mb_const.cmd_lscpu:
             print('OS command [lscpu] executable not found.')
             command_access_fail = True
-        env.cmd_clinfo = shutil.which('clinfo')
-        if not env.cmd_clinfo:
-            print('Package addon [clinfo] executable not found.')
-        env.cmd_time = shutil.which('time')
-        if not env.cmd_time:
+        mb_const.cmd_clinfo = shutil.which('clinfo')
+        if not mb_const.cmd_clinfo:
+            print('Package addon [clinfo] executable not found.  Use sudo apt-get install clinfo to install')
+        mb_const.cmd_time = shutil.which('time')
+        if not mb_const.cmd_time:
             print('OS command [time] executable not found.')
             command_access_fail = True
-        env.cmd_nvidia_smi = shutil.which('nvidia-smi')
-        if not env.cmd_nvidia_smi:
+        mb_const.cmd_nvidia_smi = shutil.which('nvidia-smi')
+        if not mb_const.cmd_nvidia_smi:
             print('Package addon [nvidia-smi] executable not found.')
-        env.cmd_lsb_release = shutil.which('lsb_release')
-        if not env.cmd_lsb_release:
+        mb_const.cmd_lsb_release = shutil.which('lsb_release')
+        if not mb_const.cmd_lsb_release:
             print('OS command [lsb_release] executable not found.')
             command_access_fail = True
-        if command_access_file:
+        if command_access_fail:
             return -3
         return 0
 
@@ -2059,6 +2098,8 @@ def main():
     if env.check_env() < 0:
         print('Error in environment. Exiting...')
         sys.exit(-1)
+
+    if mb_const.DEBUG: mb_const.print()
 
     # Run set_env in order to populate numbers of GPUS/CPU threads
     if not env.set_env():
