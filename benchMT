@@ -819,6 +819,7 @@ class BENCH_ENV:
             return -2
 
         # Check access/paths to system commands
+        """
         if not env.cmd_lspci = shutil.which('lspci'):
             print('OS command [lspci] executable not found.')
             command_access_fail = True
@@ -840,6 +841,7 @@ class BENCH_ENV:
             command_access_fail = True
         if command_access_file:
             return -3
+        """
         return 0
 
     def set_env(self):

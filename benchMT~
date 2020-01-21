@@ -820,23 +820,25 @@ class BENCH_ENV:
 
         # Check access/paths to system commands
         if not env.cmd_lspci = shutil.which('lspci'):
-            print('lspci executable not found')
-            return -3
+            print('OS command [lspci] executable not found.')
+            command_access_fail = True
         if not env.cmd_lshw = shutil.which('lshw'):
-            print('lshw executable not found')
-            return -3
+            print('OS command [lshw] executable not found.')
+            command_access_fail = True
         if not env.cmd_lscpu = shutil.which('lscpu')
-            print('lscpu executable not found')
-            return -3
+            print('OS command [lscpu] executable not found.')
+            command_access_fail = True
         if not env.cmd_clinfo = shutil.which('clinfo')
-            print('clinfo executable not found')
+            print('Package addon [clinfo] executable not found.')
         if not env.cmd_time = shutil.which('time')
-            print('time executable not found')
-            return -3
+            print('OS command [time] executable not found.')
+            command_access_fail = True
         if not env.cmd_nvidia-smi = shutil.which('nvidia-smi')
-            print('nvidia-smi executable not found')
+            print('Package addon [nvidia-smi] executable not found.')
         if not env.cmd_lsb_release = shutil.which('lsb_release')
-            print('lsb_release executable not found')
+            print('OS command [lsb_release] executable not found.')
+            command_access_fail = True
+        if command_access_file:
             return -3
         return 0
 
