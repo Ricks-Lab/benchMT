@@ -324,7 +324,7 @@ class GPU_ITEM:
         """
         if not self.energy_compatible:
             return False
-        if self.vendor == 'AMD'
+        if self.vendor == 'AMD':
             if os.path.isfile(self.hwmon_path + 'power1_average'):
                 with open(self.hwmon_path + 'power1_average') as hwmon_file:
                     power_uw = int(hwmon_file.readline())
@@ -380,19 +380,19 @@ class GPU_LIST:
                 # Found a new device
                 lineItem = linestr.split(':-:')
                 ocl_device_name = lineItem[2].strip()
-                #print('ocl_device_name [{}]'.format(ocl_device_name))
+                if mb_const.DEBUG: print('ocl_device_name [{}]'.format(ocl_device_name))
                 continue
             searchObj = re.search('CL_DEVICE_VERSION', linestr)
             if searchObj:
                 lineItem = linestr.split(':-:')
                 ocl_device_version = lineItem[2].strip()
-                #print('ocl_device_version [{}]'.format(ocl_device_version))
+                if mb_const.DEBUG: print('ocl_device_version [{}]'.format(ocl_device_version))
                 continue
             searchObj = re.search('CL_DEVICE_TOPOLOGY_AMD', linestr)
             if searchObj:
                 lineItem = linestr.split(':-:')
                 ocl_pcie_id = (lineItem[2].split()[1]).strip()
-                #print('ocl_pcie_id [{}]'.format(ocl_pcie_id))
+                if mb_const.DEBUG: print('ocl_pcie_id [{}]'.format(ocl_pcie_id))
                 self.opencl_map.update({ocl_pcie_id: [ocl_device_name, ocl_device_version]})
                 ocl_pcie_id = ''
                 ocl_device_name = ''
@@ -473,7 +473,8 @@ class GPU_LIST:
             self.add(GPU_ITEM(gpu_uuid))
             if mb_const.DEBUG: print('GPU: ', pcie_id)
             energy = compute = False
-            lspci_items = subprocess.check_output('{} -k -s {}'.format(mb_const.cmd_lspci, pcie_id), shell=True).decode().split('\n')
+            lspci_items = subprocess.check_output('{} -k -s {}'.format(mb_const.cmd_lspci, pcie_id),
+                                                  shell=True).decode().split('\n')
             if mb_const.DEBUG: print(lspci_items)
 
             # Get Long GPU Name
@@ -506,7 +507,15 @@ class GPU_LIST:
             searchObj = re.search(r'(NVIDIA|nvidia|nVidia)', gpu_name)
             if searchObj:
                 vendor = 'NVIDIA'
-                compute = True
+                compute = False
+                if self.opencl_map:
+                    if pcie_id in self.opencl_map.keys():
+                        opencl_device_name = self.opencl_map[pcie_id][0]
+                        opencl_device_version = self.opencl_map[pcie_id][1]
+                        compute = True
+                else:
+                    compute = True
+                compute = True # Always set compute = True for nvidia since I can not detect cuda
             searchObj = re.search(r'(INTEL|intel|Intel)', gpu_name)
             if searchObj:
                 vendor = 'INTEL'
@@ -557,15 +566,27 @@ class GPU_LIST:
             elif len(hw_file_srch) == 1:
                 hwmon_path = hw_file_srch[0] + '/'
 
-            if hwmon_path:
-                hw_power_file = os.path.join(hwmon_path, 'power1_average')
-                if os.path.isfile(hw_power_file):
-                    with open(hw_power_file) as hwmon_file:
-                        power_uw = int(hwmon_file.readline())
-                        print('power reading for {}: {}'.format(pcie_id, power_uw))
-                        energy = True
             if vendor == 'AMD':
+                if hwmon_path:
+                    hw_power_file = os.path.join(hwmon_path, 'power1_average')
+                    if os.path.isfile(hw_power_file):
+                        with open(hw_power_file) as hwmon_file:
+                            power_uw = int(hwmon_file.readline())
+                            print('power reading for {}: {}'.format(pcie_id, power_uw))
+                            energy = True
                 if gpu_name == 'Radeon Fiji Pro Duo':
+                    energy = False
+            elif vendor == 'NVIDIA':
+                if mb_const.cmd_nvidia_smi:
+                    nsmi_items = subprocess.check_output(
+                                 '{} -i {} --query-gpu=power.draw --format=csv,noheader,nounits'.format(
+                                 mb_const.cmd_nvidia_smi, pcie_id), shell=True).decode().split('\n')
+                    print('nsmi_items: [{}]'.format(nsmi_items))
+                    nsmi_items = subprocess.check_output(
+                                 '{} -i {} --query-gpu=power.draw --format=csv,noheader,nounits'.format(
+                                 mb_const.cmd_nvidia_smi, '9'), shell=True).decode().split('\n')
+                    print('error nsmi_items: [{}]'.format(nsmi_items))
+                else:
                     energy = False
 
             self.list[gpu_uuid].populate(pcie_id, gpu_name, vendor, driver_module,
@@ -2389,8 +2410,6 @@ def main():
                     if mb_const.DEBUG: print(cmd_str)
 
                     # Execute job with time command
-                    #cmd_str = '/usr/bin/time -f \"Real=%e|User=%U|System=%S|MaxMem=%M|SwapNum=%W|CtxSwt=%c|MajPF=%F\" '\
-                              + cmd_str
                     cmd_str = '{} -f \"Real=%e|User=%U|System=%S|MaxMem=%M|SwapNum=%W|CtxSwt=%c|MajPF=%F\" {}'.format(
                               mb_const.cmd_time, cmd_str)
                     if mb_const.DEBUG:
