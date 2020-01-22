@@ -256,7 +256,7 @@ class GPU_ITEM:
     def __init__(self, item_id):
         self.uuid = item_id
         self.card_num = -1
-        self.boinc_device_num = -1
+        self.boinc_device_num = None
         self.model = ''
         self.vendor = ''
         self.card_path = None
@@ -609,6 +609,33 @@ class GPU_LIST:
             self.list[gpu_uuid].get_power(set_energy_compatibility=True)
         return True
 
+    def apply_devmap(self):
+        for k, v in self.list.items():
+            for dmk, dmv in self.devmap.items():
+                if v.card_num == dmv:
+                    v.boinc_device_num = dmk
+                    break
+
+    def set_default_devmap(self, bd_list, cn_list):
+        """
+        Set a default devmap based on it being reverse of cn_list.
+        :param bd_list:  BOINC device number list
+        :type bd_list: list
+        :param cn_list:  Linux card number list
+        :type cn_list: list
+        :return:  true on success
+        :rtype: bool
+        """
+        if len(bd_list) != len(cn_list):
+            return False
+        boinc_dev_list = bd_list[:]
+        card_num_list = cn_list[:]
+
+        card_num_list.sort(reverse=True)
+        boinc_dev_list.sort()
+        mb_const.env.devmap = self.devmap = dict(zip(boinc_dev_list, card_num_list))
+        return True
+
     def set_devmap(self, devmap, bd_list, cn_list):
         """
         Verify consistency of devmap to boinc and card number lists and set if ok.
@@ -670,11 +697,9 @@ class GPU_LIST:
         :return:  None
         """
         env.total_gpu_threads = env.total_gpu_count = len(self.get_card_number_list(compute=True))
-        env.total_gpu_devices = []
+        env.boinc_dev_list = []
         for gi in range(0, env.total_gpu_count):
-            env.total_gpu_devices.append(int(gi))
-        # TODO Need to eliminate one of the below lists
-        env.boinc_dev_list = env.total_gpu_devices[:]
+            env.boinc_dev_list.append(int(gi))
 
     def get_card_number_list(self, compute=False, energy=False):
         """
@@ -720,13 +745,12 @@ class BENCH_ENV:
         self.total_gpu_count = 0
         self.allocated_cthreads = 0
         self.allocated_gthreads = 0
-        self.total_gpu_devices = []   # TODO total_gpu_devices and boinc_dev_list are redundant
         self.boinc_dev_list = []
         self.card_num_list = []
         self.specified_max_gpus = 0
-        self.gpu_devices = []         # TODO I broke populating this 
+        self.gpu_devices = []
         self.devmap = {}
-        self.gpu_str = ''
+        self.gpu_str = ''             # TODO I broke populating this
         self.current_dir = ''
         self.cpu_app_path = ''
         self.gpu_app_path = ''
@@ -1291,8 +1315,7 @@ class BENCH_ENV:
         print('CPU Threads: ', self.total_cpu_threads, file=fileptr)
         print('GPU Count: ', self.total_gpu_count, file=fileptr)
         print('GPU Threads: ', self.total_gpu_threads, file=fileptr)
-        print('Total GPU Devices: ', str(self.total_gpu_devices), file=fileptr)
-        print('Specified GPU Devices: ', str(self.gpu_devices), file=fileptr)
+        print('Specified GPU Device List: ', str(self.gpu_devices), file=fileptr)
         print('Devices Map: ', str(self.devmap), file=fileptr)
         print('BOINC Device List: ', str(self.boinc_dev_list), file=fileptr)
         print('GPU Card Number List: ', str(self.card_num_list), file=fileptr)
@@ -2315,22 +2338,32 @@ def main():
     # Initialize list of all GPUs
     gpu_list = GPU_LIST()
     gpu_list.set_gpu_list()
-    if args.lsgpu:
-        gpu_list.print()
-        sys.exit(0)
     gpu_list.set_env_boinc_GPU_details(env)
     env.card_num_list = gpu_list.get_card_number_list(compute=True)
 
+    # Setup devmap
+    if not env.devmap:
+        if not gpu_list.set_default_devmap(env.boinc_dev_list, env.card_num_list):
+            print('Error in setting default devmap. Exiting...')
+            sys.exit(-1)
+    else:
+        if not gpu_list.set_devmap(env.devmap, env.boinc_dev_list, env.card_num_list):
+            print('Error in devmap. Exiting...')
+            sys.exit(-1)
     # If energy reporting option is set, verify that device mapping is also set
     if env.mode_energy:
         if len(env.devmap) != env.total_gpu_threads:
             print('With Energy mode, a devmap must include all devices - devmap: ' + str(env.devmap) +
                   ' devices: ' + str(env.total_gpu_threads))
             sys.exit(-1)
+    gpu_list.apply_devmap()
+    if args.lsgpu:
+        gpu_list.print()
+        sys.exit(0)
 
     # Check if specified GPUs exceed total GPUS and set env.gpu_devices
     if len(env.mode_gpu_devices) == 0:
-        env.gpu_devices = env.total_gpu_devices
+        env.gpu_devices = env.boinc_dev_list
     else:
         if max(env.mode_gpu_devices) > env.total_gpu_threads - 1:
             print('Invalid gpu_device specified, max of ', str(env.mode_gpu_devices),
@@ -2341,7 +2374,7 @@ def main():
             env.gpu_devices = env.mode_gpu_devices
             print('Specified gpu_devices: ', str(env.mode_gpu_devices))
         else:
-            env.gpu_devices = env.total_gpu_devices
+            env.gpu_devices = env.boinc_dev_list
 
     # Allocate appropriate CPU threads
     if 0 < env.specified_max_threads < env.total_cpu_threads:
@@ -2371,9 +2404,14 @@ def main():
         sys.exit(-1)
 
     # Setup for Energy mode and devmap
-    if not gpu_list.set_devmap(env.devmap, env.boinc_dev_list, env.card_num_list):
-        print('Error in devmap. Exiting...')
-        sys.exit(-1)
+    if not env.devmap:
+        if not gpu_list.set_default_devmap(env.boinc_dev_list, env.card_num_list):
+            print('Error in setting default devmap. Exiting...')
+            sys.exit(-1)
+    else:
+        if not gpu_list.set_devmap(env.devmap, env.boinc_dev_list, env.card_num_list):
+            print('Error in devmap. Exiting...')
+            sys.exit(-1)
     if args.energy:
         num_eng_gpu = len(gpu_list.get_card_number_list(energy=True))
         if num_eng_gpu:
