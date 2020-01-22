@@ -64,6 +64,7 @@ __program_name__ = 'benchMT'
 __version__ = 'v2.0.0'
 __maintainer__ = 'RueiKe'
 __status__ = 'Under Development - Testing only, please use official release.'
+__docformat__ = 'reStructuredText'
 
 import argparse
 import re
@@ -319,8 +320,8 @@ class GPU_ITEM:
         """
         Update energy metrics my getting current power and adding it product with time since last
         call to the cumulative energy value.
-        :return: None
-        :rtype: None
+        :return: True if successful
+        :rtype: bool
         """
         if not self.energy_compatible:
             return False
@@ -621,8 +622,10 @@ class GPU_LIST:
         A function that uses the devmap dictionary to lookup a BOINC Device number and uses the corresponding
         card number to return the matching GPU.
 
-        :param int device_num:  An integer representing a BOINC Device number
-        :return GPU_ITEM:  Returns the GPU_ITEM which corresponds to the card number in devmap
+        :param device_num:  An integer representing a BOINC Device number
+        :type device_num:  int
+        :return:  Returns the GPU_ITEM which corresponds to the card number in devmap
+        :rtype: GPU_ITEM
         """
         if not self.devmap:
             return None
@@ -928,12 +931,13 @@ class BENCH_ENV:
         return 0
 
     def set_env(self):
-        """ Setup the working environment to run benchmarks
+        """
+        Setup the working environment to run benchmarks
                 - Get time and system parameters
                 - Use standard subdirectory and filenames in the mb_const class
                 - Verify all required directories and files exist
-            :return: True if all files and directories exist, else False
-            :rtype: bool
+        :return: True if all files and directories exist, else False
+        :rtype: bool
         """
         valid = True
         t = datetime.utcnow()
@@ -1135,10 +1139,12 @@ class BENCH_ENV:
             os.mkdir(self.testdata_path)
 
     def is_bench_conflict(self):
-        """return true if there is another instance running.  Check lock file for pid
+        """
+        Return true if there is another instance running.  Check lock file for pid
         if there is a valid process with that pid, then there is a conflict.
-
         if no conflict, then write current pid to lockfile and return false
+
+        :return: True if there is a conflict
         :rtype: bool
         """
         mypid = os.getpid()
@@ -1218,8 +1224,11 @@ class BENCH_ENV:
         os.chdir(cwd)
         
     def print(self, fileptr=sys.stdout):
-        """ Print all environment Details
+        """
+        Print all environment Details
+
         :return: None
+        :rtype: None
         """
         print('Hostname: ', self.hostname, file=fileptr)
         print('Run Name: ', self.run_name, file=fileptr)
