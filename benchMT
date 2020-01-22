@@ -706,7 +706,7 @@ class BENCH_ENV:
         self.boinc_dev_list = []
         self.card_num_list = []
         self.specified_max_gpus = 0
-        self.gpu_devices = []
+        self.gpu_devices = []         # TODO I broke populating this 
         self.devmap = {}
         self.gpu_str = ''
         self.current_dir = ''
@@ -941,11 +941,6 @@ class BENCH_ENV:
         self.time_now_short = t.strftime('%m%d_%H%M%S')
         self.hostname = socket.gethostname()
         self.platform = platform.system() + ' ' + platform.release()
-
-        # Check access to time command
-        #if not shutil.which('/usr/bin/time'):
-            #print('OS Command [time] not found', file=sys.stderr)
-            #valid = False
 
         # Get OS details
         if not mb_const.cmd_lsb_release:
@@ -1224,7 +1219,7 @@ class BENCH_ENV:
         
     def print(self, fileptr=sys.stdout):
         """ Print all environment Details
-            Return (void) 
+        :return: None
         """
         print('Hostname: ', self.hostname, file=fileptr)
         print('Run Name: ', self.run_name, file=fileptr)
@@ -1391,8 +1386,9 @@ class JOB_LIST:
                 self.list[job.uuid] = job
 
     def read_wu_list(self, env):
-        """Prepare a list of WUs based on the contents of the wu_path or std_signal_path
-        depending on command line arguments or CFG mode settings"""
+        """ Prepare a list of WUs based on the contents of the wu_path or std_signal_path
+            depending on command line arguments or CFG mode settings
+        """
         if env.mode_std_signals:
             wu_path = env.wu_std_signal_path
         else:
@@ -1407,8 +1403,9 @@ class JOB_LIST:
                 self.list[job.uuid] = job
 
     def create_ref_list(self, ref_app, wulist, env):
-        """create a reference job entry for every WU found using the specified 
-        ref_app.  Set state to pending"""
+        """ create a reference job entry for every WU found using the specified 
+            ref_app.  Set state to pending
+        """
         for wu_key, wu_value in wulist.list.items():
             job = BENCH_JOB(uuid4().hex)
             job.copy(ref_app)
@@ -1419,8 +1416,9 @@ class JOB_LIST:
             self.list[job.uuid] = job
 
     def check_ref_results(self, env):
-        """check if ref_file exist for each ref_job in the list. 
-           If it exists, change status from PENDING to COMPLETE """
+        """ Check if ref_file exist for each ref_job in the list. 
+            If it exists, change status from PENDING to COMPLETE
+        """
         for k, v in self.list.items():
             ref_app_name = v.app_name.replace('ref-cpu.', '')
             ref_file_name = env.ref_results_path + 'ref-result.' + ref_app_name + '.' + v.wu_name + '.sah'
@@ -1430,8 +1428,9 @@ class JOB_LIST:
                 v.complete_time = 'NA'
 
     def create_job_list(self, applist, wulist, env):
-        """ based on a list of apps and a list of WUs, create an job list which uses every app
-        to run every WU"""
+        """ Based on a list of apps and a list of WUs, create an job list which uses every app
+            to run every WU
+        """
         for i in range(0, env.repetitions):
             for wu_key, wu_value in wulist.list.items():
                 for app_key, app_value in applist.list.items():
@@ -1444,7 +1443,8 @@ class JOB_LIST:
                         self.list[job.uuid] = job
 
     def append_job_list(self, newlist):
-        """ append jobs in newlist to self, but check if jobs are already in self """
+        """ Append jobs in newlist to self, but check if jobs are already in self
+        """
         for nl_key, nl_value in newlist.list.items():
             if nl_key in self.list.keys():
                 # SKIP if new Job is already in the list
@@ -1452,7 +1452,7 @@ class JOB_LIST:
             else:
                 self.list[nl_value.uuid] = nl_value
 
-    def print(self, compact_flag=False, show_skipped=False, fileptr=sys.stdout, title=""):
+    def print(self, compact_flag=False, show_skipped=False, fileptr=sys.stdout, title=''):
         i = 0
         # Print is optimized for 112 columns
         num_jobs = self.jobcount_bystatus()
@@ -2252,7 +2252,6 @@ def main():
 
     # Print the final view of the execution environment
     env.print()
-    #sys.exit(0)
 
     # Create a list of WUs to be processed
     wulist = JOB_LIST()
@@ -2358,7 +2357,7 @@ def main():
         sys.exit(-1)
     env.sum_file_ptr = open(env.summary_file, 'w', 1)
     env.psv_file_ptr = open(env.psv_file, 'w', 1)
-    print(__program_name__ + ' ' + __version__ + ' \u2015 SETI MB Benchmarking Utility \u2015 Linux edition\n',
+    print(__program_name__ + ' ' + __version__ + ' \u2015 SETI MB/AP Benchmarking Utility \u2015 Linux Edition\n',
           file=env.sum_file_ptr)
     if not env.mode_noBS:
         print('Suspending BOINC\n', file=env.sum_file_ptr)
