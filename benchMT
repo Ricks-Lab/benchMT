@@ -324,23 +324,52 @@ class GPU_ITEM:
         """
         if not self.energy_compatible:
             return False
+        self.power = self.get_power()
+        if self.power:
+            time_n = datetime.utcnow()
+            delta_hrs = ((time_n - self.energy['tn']).total_seconds())/3600
+            self.energy['tn'] = time_n
+            self.energy['cumulative'] += delta_hrs * self.power
+            return True
+        else:
+            print('Error: Power read failed for GPU-{}: [{}]'.format(self.card_num, self.pcie_id), file=sys.stderr)
+            return False
+
+    def get_power(self, set_energy_compatibility=False):
+        power_reading = None
+        # If not called as part of compatibility check, then check compatibility
+        if not set_energy_compatibility:
+            if not self.energy_compatibility:
+                return None
+
         if self.vendor == 'AMD':
-            if os.path.isfile(self.hwmon_path + 'power1_average'):
-                with open(self.hwmon_path + 'power1_average') as hwmon_file:
-                    power_uw = int(hwmon_file.readline())
-                    time_n = datetime.utcnow()
-                    self.power = int(power_uw)/1000000
-                    delta_hrs = ((time_n - self.energy['tn']).total_seconds())/3600
-                    self.energy['tn'] = time_n
-                    self.energy['cumulative'] += delta_hrs * power_uw/1000000000
-                return True
-            else:
-                print('Error: HW file does not exist: %s' % (self.hwmon_path + 'power1_average'), file=sys.stderr)
-                print('For card path: %s' % self.card_path, file=sys.stderr)
-                return False
-        elif self.vendor == 'NVIDIA':
-            pass
-        return False
+            # AMD power reading
+            if self.hwmon_path:
+                hw_power_file = os.path.join(self.hwmon_path, 'power1_average')
+                if os.path.isfile(hw_power_file):
+                    try:
+                        with open(hw_power_file) as hwmon_file:
+                            power_reading = int(hwmon_file.readline())/1000000000.0
+                    except:
+                        power_reading = None
+                            if mb_const.DEBUG: print('Failed to make power reading for {}'.format(self.pcie_id))
+        elif vendor == 'NVIDIA':
+            # NVIDIA power reading
+            if mb_const.cmd_nvidia_smi:
+                try:
+                    nsmi_items = subprocess.check_output(
+                                 '{} -i {} --query-gpu=power.draw --format=csv,noheader,nounits'.format(
+                                 mb_const.cmd_nvidia_smi, pcie_id), shell=True).decode().split('\n')
+                    power_reading = nsmi_items[0]
+                except:
+                    power_reading = None
+                        if mb_const.DEBUG: print('Failed to make power reading for {}'.format(self.pcie_id))
+
+        if mb_const.DEBUG: print('power reading for {}: {}'.format(self.pcie_id, power_reading))
+        if set_energy_compatibility:
+            self.energy_compatible = True if power_reading else False
+
+        return power_reading
 
 
 class GPU_LIST:
@@ -566,32 +595,13 @@ class GPU_LIST:
             elif len(hw_file_srch) == 1:
                 hwmon_path = hw_file_srch[0] + '/'
 
-            if vendor == 'AMD':
-                if hwmon_path:
-                    hw_power_file = os.path.join(hwmon_path, 'power1_average')
-                    if os.path.isfile(hw_power_file):
-                        with open(hw_power_file) as hwmon_file:
-                            power_uw = int(hwmon_file.readline())
-                            print('power reading for {}: {}'.format(pcie_id, power_uw))
-                            energy = True
-                if gpu_name == 'Radeon Fiji Pro Duo':
-                    energy = False
-            elif vendor == 'NVIDIA':
-                if mb_const.cmd_nvidia_smi:
-                    nsmi_items = subprocess.check_output(
-                                 '{} -i {} --query-gpu=power.draw --format=csv,noheader,nounits'.format(
-                                 mb_const.cmd_nvidia_smi, pcie_id), shell=True).decode().split('\n')
-                    print('nsmi_items: [{}]'.format(nsmi_items))
-                    nsmi_items = subprocess.check_output(
-                                 '{} -i {} --query-gpu=power.draw --format=csv,noheader,nounits'.format(
-                                 mb_const.cmd_nvidia_smi, '9'), shell=True).decode().split('\n')
-                    print('error nsmi_items: [{}]'.format(nsmi_items))
-                else:
-                    energy = False
-
             self.list[gpu_uuid].populate(pcie_id, gpu_name, vendor, driver_module,
                                          card_path, hwmon_path, energy, compute,
                                          opencl_device_name, opencl_device_version)
+
+            # Set energy compatibility
+            get_power(self.list[gpu_uuid], set_energy_compatibility=True)
+
         return True
 
     def set_devmap(self, devmap, bd_list, cn_list):
