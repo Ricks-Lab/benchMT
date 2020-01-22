@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""benchMT  -  SETI multi-threaded MB Benchmark Tool
+"""benchMT  -  SETI multi-threaded MB/AP Benchmark Tool
 
     This tool will extract the total number of CPU cores/threads and GPU platforms from the user's
     environment and utilize them in running a list of apps/args specified in the benchCFG file.  Using
@@ -80,6 +80,7 @@ from uuid import uuid4
 import glob 
 import shutil 
 from pathlib import Path
+from typing import Union
 
 
 class MB_CONST:
@@ -118,6 +119,12 @@ class MB_CONST:
         self.cmd_nvidia_smi = None
 
     def print(self):
+        """
+        Print all elements an MB_CONST object.
+
+        :return: None
+        :rtype: None
+        """
         print('mb_const.boinc_home: [{}]'.format(self.boinc_home))
         print('mb_const.cpu_app_subdir: [{}]'.format(self.cpu_app_subdir))
         print('mb_const.gpu_app_subdir: [{}]'.format(self.gpu_app_subdir))
@@ -228,9 +235,11 @@ class CFG_MODES:
     def mode_value(self, mode_name):
         """
         Get value for given mode.
+
         :param mode_name:
         :type mode_name: str
         :return:  value
+        :rtype: Union([str, bool])
         """
         if mode_name not in self.modes.keys():
             return False
@@ -239,6 +248,7 @@ class CFG_MODES:
     def print(self):
         """
         Print modes.
+
         :return: None
         :rtype: None
         """
@@ -267,6 +277,32 @@ class GPU_ITEM:
 
     def populate(self, pcie_id, gpu_name, vendor, driver_module, card_path, hwmon_path,
                  energy, compute, ocl_dev, ocl_ver):
+        """
+        Populate elements of a GPU_ITEM.
+
+        :param pcie_id: The pcid ID of the GPU.
+        :type pcie_id: str
+        :param gpu_name:  Model name of the GPU
+        :type gpu_name: str
+        :param vendor:  The make of the GPU (AMD, NVIDIA, ...)
+        :type vendor: str
+        :param driver_module: The name of the driver.
+        :type driver_module: str
+        :param card_path: The path to the GPU.
+        :type card_path: str
+        :param hwmon_path: Path to the hardware monitor files.
+        :type hwmon_path: str
+        :param energy: Energy compatibility flag
+        :type energy: bool
+        :param compute: Compute compatibility flag
+        :type compute: bool
+        :param ocl_dev:  openCL device
+        :type ocl_dev: str
+        :param ocl_ver: openCL version
+        :type ocl_ver: str
+        :return: None
+        :rtype: None
+        """
         self.pcie_id = pcie_id
         self.model = gpu_name
         self.vendor = vendor
@@ -337,6 +373,13 @@ class GPU_ITEM:
             return False
 
     def get_power(self, set_energy_compatibility=False):
+        """
+        Get power from GPU and set energy compatible flag if desired.
+        :param set_energy_compatibility: True if GPU_ITEM energy_compatible flag is to be not checked and set.
+        :type set_energy_compatibility: bool
+        :return: power reading in Watts
+        :rtype: Union([float, None])
+        """
         power_reading = None
         # If not called as part of compatibility check, then check compatibility
         if not set_energy_compatibility:
