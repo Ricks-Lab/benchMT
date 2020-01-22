@@ -2342,14 +2342,14 @@ def main():
     env.card_num_list = gpu_list.get_card_number_list(compute=True)
 
     # Setup devmap
-    if not env.devmap:
-        if not gpu_list.set_default_devmap(env.boinc_dev_list, env.card_num_list):
-            print('Error in setting default devmap. Exiting...')
-            sys.exit(-1)
-    else:
-        if not gpu_list.set_devmap(env.devmap, env.boinc_dev_list, env.card_num_list):
-            print('Error in devmap. Exiting...')
-            sys.exit(-1)
+    #if not env.devmap:
+        #if not gpu_list.set_default_devmap(env.boinc_dev_list, env.card_num_list):
+            #print('Error in setting default devmap. Exiting...')
+            #sys.exit(-1)
+    #else:
+    if not gpu_list.set_devmap(env.devmap, env.boinc_dev_list, env.card_num_list):
+        print('Error in devmap. Exiting...')
+        sys.exit(-1)
     # If energy reporting option is set, verify that device mapping is also set
     if env.mode_energy:
         if len(env.devmap) != env.total_gpu_threads:
