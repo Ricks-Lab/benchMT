@@ -121,7 +121,6 @@ class MB_CONST:
     def print(self):
         """
         Print all elements an MB_CONST object.
-
         :return: None
         :rtype: None
         """
@@ -200,7 +199,6 @@ class CFG_MODES:
     def set_mode(self, mode_name, mode_value):
         """
         Set given mode to the specified value.
-
         :param mode_name: Name of the mode to be updated
         :type mode_name: str
         :param mode_value: Value
@@ -235,7 +233,6 @@ class CFG_MODES:
     def mode_value(self, mode_name):
         """
         Get value for given mode.
-
         :param mode_name:
         :type mode_name: str
         :return:  value
@@ -248,7 +245,6 @@ class CFG_MODES:
     def print(self):
         """
         Print modes.
-
         :return: None
         :rtype: None
         """
@@ -279,7 +275,6 @@ class GPU_ITEM:
                  energy, compute, ocl_dev, ocl_ver):
         """
         Populate elements of a GPU_ITEM.
-
         :param pcie_id: The pcid ID of the GPU.
         :type pcie_id: str
         :param gpu_name:  Model name of the GPU
@@ -423,16 +418,38 @@ class GPU_LIST:
         self.opencl_map = {}
 
     def print(self):
+        """
+        Print every GPU_ITEM in the GPU_LIST object.
+        :return:  None
+        :rtype:  None
+        """
         for k, v in self.list.items():
             v.print()
 
     def add(self, gpu_item):
+        """
+        Add given GPU_ITEM to the GPU_LIST
+        :param gpu_item:  Item to be added
+        :type gpu_item: GPU_ITEM
+        :return: None
+        :rtype: None
+        """
         self.list[gpu_item.uuid] = gpu_item
 
     def set_gpu_list(self):
+        """
+        Set GPU_LIST by calling appropriate system command.
+        :return: Returns false since not implemented
+        :rtype: bool
+        """
         return self.set_lspci_gpu_list()
 
     def read_gpu_opencl_data(self):
+        """
+        Use clinfo system call to get openCL details for relevant GPUs.
+        :return:  Returns True if successful
+        :rtype:  bool
+        """
         # Check access to clinfo command
         if not mb_const.cmd_clinfo:
             print('OS Command [clinfo] not found.  Use sudo apt-get install clinfo to install', file=sys.stderr)
@@ -478,10 +495,11 @@ class GPU_LIST:
         Potentially need to develop a lshw based GPU list generator.
         :return: Returns false since not implemented
         :rtype: bool
+        .. todo:: Once this is confirmed to be unneeded, delete it!
         """
         # Get GPU details
         # This is the original code but needs to be modified to build a GPU_LIST
-        self.boinc_dev_list = []
+        mb_const.env.boinc_dev_list = []
         if not mb_const.cmd_lshw:
             print('OS Command [lshw] not found', file=sys.stderr)
             valid = False
@@ -499,7 +517,7 @@ class GPU_LIST:
                         continue
                     searchObj = re.search('display', linestr)
                     if searchObj:
-                        self.boinc_dev_list.append(gpu_cnt)
+                        mb_const.env.boinc_dev_list.append(gpu_cnt)
                         gpu_cnt += 1
                         lineItem = linestr.split('display')
                         if len(lineItem) > 1:
