@@ -340,7 +340,7 @@ class GPU_ITEM:
         power_reading = None
         # If not called as part of compatibility check, then check compatibility
         if not set_energy_compatibility:
-            if not self.energy_compatibility:
+            if not self.energy_compatible:
                 return None
 
         if self.vendor == 'AMD':
@@ -353,18 +353,18 @@ class GPU_ITEM:
                             power_reading = int(hwmon_file.readline())/1000000000.0
                     except:
                         power_reading = None
-                            if mb_const.DEBUG: print('Failed to make power reading for {}'.format(self.pcie_id))
-        elif vendor == 'NVIDIA':
+                        if mb_const.DEBUG: print('Failed to make power reading for {}'.format(self.pcie_id))
+        elif self.vendor == 'NVIDIA':
             # NVIDIA power reading
             if mb_const.cmd_nvidia_smi:
                 try:
                     nsmi_items = subprocess.check_output(
                                  '{} -i {} --query-gpu=power.draw --format=csv,noheader,nounits'.format(
-                                 mb_const.cmd_nvidia_smi, pcie_id), shell=True).decode().split('\n')
+                                 mb_const.cmd_nvidia_smi, self.pcie_id), shell=True).decode().split('\n')
                     power_reading = nsmi_items[0]
                 except:
                     power_reading = None
-                        if mb_const.DEBUG: print('Failed to make power reading for {}'.format(self.pcie_id))
+                    if mb_const.DEBUG: print('Failed to make power reading for {}'.format(self.pcie_id))
 
         if mb_const.DEBUG: print('power reading for {}: {}'.format(self.pcie_id, power_reading))
         if set_energy_compatibility:
@@ -601,7 +601,7 @@ class GPU_LIST:
                                          opencl_device_name, opencl_device_version)
 
             # Set energy compatibility
-            get_power(self.list[gpu_uuid], set_energy_compatibility=True)
+            self.list[gpu_uuid].get_power(set_energy_compatibility=True)
 
         return True
 
