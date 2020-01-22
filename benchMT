@@ -436,14 +436,6 @@ class GPU_LIST:
         """
         self.list[gpu_item.uuid] = gpu_item
 
-    def set_gpu_list(self):
-        """
-        Set GPU_LIST by calling appropriate system command.
-        :return: Returns false since not implemented
-        :rtype: bool
-        """
-        return self.set_lspci_gpu_list()
-
     def read_gpu_opencl_data(self):
         """
         Use clinfo system call to get openCL details for relevant GPUs.
@@ -490,65 +482,17 @@ class GPU_LIST:
                 continue
         return True
 
-    def set_lshw_gpu_list(self):
-        """
-        Potentially need to develop a lshw based GPU list generator.
-        :return: Returns false since not implemented
-        :rtype: bool
-        .. todo:: Once this is confirmed to be unneeded, delete it!
-        """
-        # Get GPU details
-        # This is the original code but needs to be modified to build a GPU_LIST
-        mb_const.env.boinc_dev_list = []
-        if not mb_const.cmd_lshw:
-            print('OS Command [lshw] not found', file=sys.stderr)
-            valid = False
-        else:
-            gpu_cnt = 0
-            gpu_str = ''
-            cmd_str = '{} -short 2>/dev/null | grep display'.format(mb_const.cmd_lshw)
-            try:
-                cmd = subprocess.Popen(cmd_str, shell=True, stdout=subprocess.PIPE)
-                for line in cmd.stdout:
-                    linestr = line.decode('utf-8').strip()
-                    searchObj = re.search('ASPEED', linestr)
-                    if searchObj:
-                        # Skip server display graphics
-                        continue
-                    searchObj = re.search('display', linestr)
-                    if searchObj:
-                        mb_const.env.boinc_dev_list.append(gpu_cnt)
-                        gpu_cnt += 1
-                        lineItem = linestr.split('display')
-                        if len(lineItem) > 1:
-                            gpu_str = gpu_str + ' [' + lineItem[1].strip() + ']'
-                        else:
-                            gpu_str = gpu_str + '[UNKNOWN]'
-                        continue
-                cmd.stdout.close()
-                self.total_gpu_count = gpu_cnt
-                self.total_gpu_threads = gpu_cnt
-                for gi in range(0, gpu_cnt):
-                    self.total_gpu_devices.append(int(gi))
-                self.gpu_str = gpu_str
-                if mb_const.DEBUG: print('BOINC Device List: [{}]'.format(self.boinc_dev_list))
-            except:
-                print('Error: can not determine GPU details', file=sys.stderr)
-                valid = False
-        #return True
-        return False
-
-    def set_lspci_gpu_list(self):
+    def set_gpu_list(self):
         """
         Use lspci to populate list of all installed GPUs.
-
         :return: True on success
         :rtype: bool
         """
         if not mb_const.cmd_lspci:
             return False
         self.read_gpu_opencl_data()
-        print(self.opencl_map)
+        # TODO check in nvidia-smi can determine if cuda is available to generate cuda map
+        if mb_const.DEBUG: print(self.opencl_map)
 
         try:
             pcie_ids = subprocess.check_output('{} | grep -E \
@@ -663,10 +607,20 @@ class GPU_LIST:
 
             # Set energy compatibility
             self.list[gpu_uuid].get_power(set_energy_compatibility=True)
-
         return True
 
     def set_devmap(self, devmap, bd_list, cn_list):
+        """
+        Verify consistency of devmap to boinc and card number lists and set if ok.
+        :param devmap:  The device mapping dictionary
+        :type devmap: dict
+        :param bd_list:  BOINC device number list
+        :type bd_list: list
+        :param cn_list:  Linux card number list
+        :type cn_list: list
+        :return:  true on success
+        :rtype: bool
+        """
         self.devmap = devmap
         ret_value = True
         for k, v in devmap.items():
@@ -682,7 +636,6 @@ class GPU_LIST:
         """
         A function that uses the devmap dictionary to lookup a BOINC Device number and uses the corresponding
         card number to return the matching GPU.
-
         :param device_num:  An integer representing a BOINC Device number
         :type device_num:  int
         :return:  Returns the GPU_ITEM which corresponds to the card number in devmap
@@ -728,7 +681,10 @@ class GPU_LIST:
         This function returns a list of all valid card numbers. If compute is true, then only compute
         compatible cards are returned.  If energy is true then only compute compatible GPUs with energy capability
         are returned.
-
+        :param compute: if True return list of compute capable cards
+        :type compute: bool
+        :param energy: if True return list of compute capable cards that are energy capable
+        :type energy: bool
         :return: Returns a list of valid GPU card numbers
         :rtype: list
         """
@@ -745,7 +701,6 @@ class GPU_LIST:
                         cnlist.append(v.card_num)
                 else:
                     cnlist.append(v.card_num)
-        #print('cnlist: {}'.format(cnlist))
         return cnlist
 
 
@@ -758,7 +713,6 @@ class BENCH_ENV:
         self.os_desc = ''
         self.cpu_model = ''
         self.cpu_mhz = ''
-        self.amdfeaturemask = ''
         self.total_cpu_threads = 0
         self.total_cpu_cores = 0
         self.specified_max_threads = 0
@@ -812,9 +766,10 @@ class BENCH_ENV:
         """
         This function takes command line arguments and configuration modes to determine
         final operating mode of benchMT.  Command line args will over ride config file modes.
-
         :param args:  Command line arguments
         :param cfg_modes:  Config file modes
+        :return: None
+        :rtype: None
         """
         # mode_yes
         if args.yes: self.mode_yes = True
@@ -931,6 +886,11 @@ class BENCH_ENV:
 
     @staticmethod
     def check_env():
+        """
+        Return 0 if all good, -1 if python version issue, -2 if OS issue, -3 if system command issue.
+        :return:  Integer check code
+        :rtype: int
+        """
         # Check python version
         required_pversion = [3, 6]
         (python_major, python_minor, python_patch) = platform.python_version_tuple()
@@ -1135,6 +1095,11 @@ class BENCH_ENV:
         return valid
 
     def set_env_boinc(self):
+        """
+        Set boinc environment components.
+        :return:  True if all ok
+        :rtype: bool
+        """
         valid = True
         if not mb_const.noBS:
             if not os.path.isdir(self.boinc_home):
@@ -1162,6 +1127,11 @@ class BENCH_ENV:
         return valid
 
     def purge_workdir_cache(self):
+        """
+        Purge openCL kernels from working directory.
+        :return: None
+        :rtype: None
+        """
         if not os.path.isdir(self.workdir_path):
             print('benchMT workdir Path [{}] does not exist, can not purge cache...'.format(self.workdir_path))
         else:
@@ -1174,7 +1144,10 @@ class BENCH_ENV:
             print('Removed: {}'.format(file_str))
 
     def makedirs(self):
-        """ Check existence of required directories and make if missing
+        """
+        Check existence of required directories and make if missing
+        :return: None
+        :rtype: None
         """
         # Check/Make working directories
         if not os.path.isdir(self.cpu_app_path):
@@ -1204,7 +1177,6 @@ class BENCH_ENV:
         Return true if there is another instance running.  Check lock file for pid
         if there is a valid process with that pid, then there is a conflict.
         if no conflict, then write current pid to lockfile and return false
-
         :return: True if there is a conflict
         :rtype: bool
         """
@@ -1232,6 +1204,11 @@ class BENCH_ENV:
 
     @staticmethod
     def is_boinc_running():
+        """
+        Check if boinc is running.
+        :return: True if running
+        :rtype: bool
+        """
         cmd_str = 'ps -C boinc -o pid 2>/dev/null'
         try:
             cmd = subprocess.Popen(cmd_str, shell=True, stdout=subprocess.PIPE)
@@ -1247,6 +1224,11 @@ class BENCH_ENV:
             return True
 
     def suspend_boinc(self):
+        """
+        Run boinc suspend script
+        :return: None
+        :rtype: None
+        """
         if not self.is_boinc_running():
             print('boinc is not running, skip suspend')
             return
@@ -1266,6 +1248,11 @@ class BENCH_ENV:
         os.chdir(cwd)
 
     def resume_boinc(self):
+        """
+        Run boinc resume script
+        :return: None
+        :rtype: None
+        """
         if not self.is_boinc_running():
             print('boinc is not running, skip resume')
             return
@@ -1286,8 +1273,7 @@ class BENCH_ENV:
         
     def print(self, fileptr=sys.stdout):
         """
-        Print all environment Details
-
+        Print all environment details.
         :return: None
         :rtype: None
         """
@@ -1372,6 +1358,12 @@ class BENCH_JOB:
         self.energy = -1
 
     def copy(self, src):
+        """
+        Copy a BENCH_JOB object to self.
+        :param src:
+        :type src: BENCH_JOB
+        :return: None
+        """
         # Don't copy uuid self.uuid = item_id src.uuid
         self.cmd = src.cmd 
         self.start_time = src.start_time 
@@ -1407,8 +1399,14 @@ class JOB_LIST:
         self.list = {}
 
     def read_benchcfg(self, env, modes):
-        """ read the default benchCFG file or one specified by user on command line.  Extract 
-            modes, app_names and app_args
+        """
+        Read the default benchCFG file or one specified by user on command line.  Extract
+        modes, app_names and app_args
+        :param env:
+        :type env: BENCH_ENV
+        :param modes:
+        :type modes: CFG_MODES
+        :return:  None
         """
         with open(env.command_line_file, 'r') as clfptr:
             for line in clfptr:
@@ -1456,8 +1454,12 @@ class JOB_LIST:
                 self.list[job.uuid] = job
 
     def read_wu_list(self, env):
-        """ Prepare a list of WUs based on the contents of the wu_path or std_signal_path
-            depending on command line arguments or CFG mode settings
+        """
+        Prepare a list of WUs based on the contents of the wu_path or std_signal_path
+        depending on command line arguments or CFG mode settings
+        :param env: environment object
+        :type env: BENCH_ENV
+        :return: None
         """
         if env.mode_std_signals:
             wu_path = env.wu_std_signal_path
@@ -1472,9 +1474,15 @@ class JOB_LIST:
                 job.wu_path = wu_path
                 self.list[job.uuid] = job
 
-    def create_ref_list(self, ref_app, wulist, env):
-        """ create a reference job entry for every WU found using the specified 
-            ref_app.  Set state to pending
+    def create_ref_list(self, ref_app, wulist):
+        """
+        Create a reference job entry for every WU found using the specified
+        ref_app.  Set state to pending.
+        :param ref_app: A bench job object for reference app
+        :type ref_app: BENCH_JOB
+        :param wulist:  Work unit job list
+        :type wulist:  JOB_LIST
+        :return:  None
         """
         for wu_key, wu_value in wulist.list.items():
             job = BENCH_JOB(uuid4().hex)
@@ -1486,8 +1494,12 @@ class JOB_LIST:
             self.list[job.uuid] = job
 
     def check_ref_results(self, env):
-        """ Check if ref_file exist for each ref_job in the list. 
-            If it exists, change status from PENDING to COMPLETE
+        """
+        Check if ref_file exist for each ref_job in the list.
+        If it exists, change status from PENDING to COMPLETE
+        :param env:  environment
+        :type env: BENCH_ENV
+        :return: None
         """
         for k, v in self.list.items():
             ref_app_name = v.app_name.replace('ref-cpu.', '')
@@ -1498,8 +1510,16 @@ class JOB_LIST:
                 v.complete_time = 'NA'
 
     def create_job_list(self, applist, wulist, env):
-        """ Based on a list of apps and a list of WUs, create an job list which uses every app
-            to run every WU
+        """
+        Based on a list of apps and a list of WUs, create an job list which uses every app
+        to run every WU.
+        :param applist: Application List
+        :type applist: JOB_LIST
+        :param wulist:  Work Unit List
+        :type wulist: JOB_LIST
+        :param env: Environment
+        :type env: BENCH_ENV
+        :return: None
         """
         for i in range(0, env.repetitions):
             for wu_key, wu_value in wulist.list.items():
@@ -1513,7 +1533,11 @@ class JOB_LIST:
                         self.list[job.uuid] = job
 
     def append_job_list(self, newlist):
-        """ Append jobs in newlist to self, but check if jobs are already in self
+        """
+        Append jobs in newlist to self, but check if jobs are already in self
+        :param newlist:  Job list to be appended to self
+        :type newlist: JOB_LIST
+        :return: None
         """
         for nl_key, nl_value in newlist.list.items():
             if nl_key in self.list.keys():
@@ -1523,6 +1547,18 @@ class JOB_LIST:
                 self.list[nl_value.uuid] = nl_value
 
     def print(self, compact_flag=False, show_skipped=False, fileptr=sys.stdout, title=''):
+        """
+        Output formated job list table.
+        :param compact_flag: Use compact format if true
+        :type compact_flag: bool
+        :param show_skipped:  show skipped jobs if true
+        :type show_skipped: bool
+        :param fileptr: Output fileptr
+        :type fileptr: file
+        :param title:  Title of the table
+        :type title: str
+        :return: None
+        """
         i = 0
         # Print is optimized for 112 columns
         num_jobs = self.jobcount_bystatus()
@@ -1617,14 +1653,34 @@ class JOB_LIST:
               '─'.ljust(8, '─') + '┘', file=fileptr, sep='┴')
 
     def print_app_names(self, fileptr=sys.stdout):
+        """
+        Output app names for given job list.
+        :param fileptr: fileptr for output, default is stdout
+        :type fileptr: file
+        :return: None
+        """
         for k, v in self.list.items():
             print(v.app_name, file=fileptr)
 
     def print_wu_names(self, fileptr=sys.stdout):
+        """
+        Output work unit names for given job list.
+        :param fileptr: fileptr for output, default is stdout
+        :type fileptr: file
+        :return: None
+        """
         for k, v in self.list.items():
             print(v.wu_name, file=fileptr)
 
     def psv_print(self, env, fileptr=sys.stdout):
+        """
+        Output self to psv file or stdout bu default.
+        :param env:  environment
+        :type env: BENCH_ENV
+        :param fileptr: fileptr for output, default is stdout
+        :type fileptr: file
+        :return: None
+        """
         print('Host', 'RunName', 'CPU', 'CPU-MHz', 'JobID', 'Platform', 'app_name', 'app_args', 'wu_name',
               'angle_range', 'spike_cnt', 'autocorr_cnt', 'pulse_cnt', 'triplet_cnt', 'gaussian_cnt', 'start_time',
               'complete_time', 'elapsed_time', 'real_time', 'user_time', 'sys_time', 'energy', 'maxmem', 'swapnum',
@@ -1658,6 +1714,11 @@ class JOB_LIST:
                   v.state, v.q_value, v.similarity, error_str, file=fileptr, sep='|')
 
     def jobcount_bystatus(self):
+        """
+        Return a dictionary of job counts with status as keys.
+        :return: dictionary with job counts by status.
+        :rtype: dict
+        """
         num_pending_jobs = {'PENDING': 0, 'COMPLETE': 0, 'ACTIVE': 0, 'TOTAL': 0}
         for k, v in self.list.items():
             num_pending_jobs[v.state] += 1
@@ -1665,6 +1726,11 @@ class JOB_LIST:
         return num_pending_jobs
 
     def pending_pjobs(self):
+        """
+        Return a dictionary of pending job counts with type as keys.
+        :return: dictionary with pending job counts by type.
+        :rtype: dict
+        """
         num_pending_jobs = {'GPU': 0, 'CPU': 0, 'REF': 0}
         for k, v in self.list.items():
             if v.state == 'PENDING':
@@ -1672,6 +1738,11 @@ class JOB_LIST:
         return num_pending_jobs
 
     def pending_jobs(self):
+        """
+        Return count of pending jobs.
+        :return: pending job count
+        :rtype: int
+        """
         num_pending_jobs = 0
         for k, v in self.list.items():
             if v.state == 'PENDING':
@@ -2273,14 +2344,12 @@ def main():
             env.gpu_devices = env.total_gpu_devices
 
     # Allocate appropriate CPU threads
-    # if env.specified_max_threads > 0 and env.specified_max_threads < env.total_cpu_threads:
     if 0 < env.specified_max_threads < env.total_cpu_threads:
         env.allocated_cthreads = env.specified_max_threads
     else:
         env.allocated_cthreads = env.total_cpu_threads
 
     # Allocate appropriate GPU threads
-    # if env.specified_max_gpus > 0 and env.specified_max_gpus < env.total_gpu_threads:
     if 0 < env.specified_max_gpus < env.total_gpu_threads:
         env.allocated_gthreads = env.specified_max_gpus
     else:
@@ -2343,7 +2412,7 @@ def main():
         else:
             valid_ref = True
             ref_app.app_args = ' --nographics'
-            reflist.create_ref_list(ref_app, wulist, env)
+            reflist.create_ref_list(ref_app, wulist)
         os.chdir(cwd)
         if env.mode_force_ref:
             print('Forcing Reference Results Generation')
@@ -2396,7 +2465,6 @@ def main():
     slots.print(title='List of Initialized Slots')
 
     # Execute the joblist
-    # num_available_pslots = slots.available_pslots()
     num_pending_pjobs = joblist.pending_pjobs()
     num_pending_jobs = num_pending_pjobs['CPU'] + num_pending_pjobs['GPU']
     print('Pending jobs (CPU/GPU): ', num_pending_pjobs['CPU'], '/', num_pending_pjobs['GPU'])
