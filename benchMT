@@ -84,6 +84,9 @@ from typing import Union
 
 
 class MB_CONST:
+    """
+    Defines benchMT constants used through out the code.
+    """
     def __init__(self):
         self.boinc_home = '/home/boinc/BOINC/'
         self.cpu_app_subdir = 'APPS_CPU/'
@@ -162,6 +165,9 @@ mb_const = MB_CONST()
 
 
 class CFG_MODES:
+    """
+    Defines benchMT configuration modes.
+    """
     def __init__(self):
         self.modes = {'yes': None,
                       'run_name': None,
@@ -253,9 +259,12 @@ class CFG_MODES:
 
 
 class GPU_ITEM:
+    """
+    Defines a data object that represents a GPU.
+    """
     def __init__(self, item_id):
         self.uuid = item_id
-        self.card_num = -1
+        self.card_num = None
         self.boinc_device_num = None
         self.model = ''
         self.vendor = ''
@@ -412,6 +421,9 @@ class GPU_ITEM:
 
 
 class GPU_LIST:
+    """
+    An object that stores all GPU objects and other critial parameters.
+    """
     def __init__(self):
         self.list = {}
         self.devmap = {}
@@ -487,11 +499,11 @@ class GPU_LIST:
         Use lspci to populate list of all installed GPUs.
         :return: True on success
         :rtype: bool
+        .. todo:: check in nvidia-smi can determine if cuda is available to generate cuda map
         """
         if not mb_const.cmd_lspci:
             return False
         self.read_gpu_opencl_data()
-        # TODO check in nvidia-smi can determine if cuda is available to generate cuda map
         if mb_const.DEBUG: print(self.opencl_map)
 
         try:
@@ -625,6 +637,7 @@ class GPU_LIST:
         :type cn_list: list
         :return:  true on success
         :rtype: bool
+        .. note:: Confirmed invalid approach, do not use.
         """
         if len(bd_list) != len(cn_list):
             return False
@@ -657,6 +670,7 @@ class GPU_LIST:
             if v not in cn_list:
                 print('Error in devmap: Card Number {} not in valid Driver Card Numbers [{}]'.format(v, cn_list))
                 ret_value = False
+        self.apply_devmap()
         return ret_value
 
     def get_device_gpu(self, device_num):
@@ -667,6 +681,7 @@ class GPU_LIST:
         :type device_num:  int
         :return:  Returns the GPU_ITEM which corresponds to the card number in devmap
         :rtype: GPU_ITEM
+        .. todo:: with the implementation of apply_devmap, this function could be optimized.
         """
         if not self.devmap:
             return None
@@ -730,6 +745,9 @@ class GPU_LIST:
 
 
 class BENCH_ENV:
+    """
+    benchMT environment parameters.
+    """
     def __init__(self):
         self.time_now = ''
         self.time_now_short = ''
@@ -1348,10 +1366,13 @@ class BENCH_ENV:
 
 
 class BENCH_JOB:
+    """
+    Object which represents a processing job.
+    """
     def __init__(self, item_id):
         self.uuid = item_id
         self.cmd = ''
-        self.slot = -1
+        self.slot = None
         self.start_time = 'not started'
         self.complete_time = 'not started'
         self.exit_status = ''
@@ -1418,6 +1439,9 @@ class BENCH_JOB:
 
 
 class JOB_LIST:
+    """
+    An object that aggregates jobs.
+    """
     def __init__(self):
         self.list = {}
 
@@ -1616,7 +1640,7 @@ class JOB_LIST:
                   'wu_name'.ljust(38, ' ') + '│', file=fileptr, sep='│')
 
         for k, v in self.list.items():
-            if v.slot == -1:
+            if v.slot is None:
                 slot_str = ' NA'
             else:
                 slot_str = ' ' + str(v.slot)
@@ -1773,6 +1797,13 @@ class JOB_LIST:
         return num_pending_jobs
 
     def all_complete(self, platform=''):
+        """
+        Check if all jobs are complete. If platform is specified, then check is limited to that platform.
+        :param platform:  The target platform, all if not specified
+        :type platform: str
+        :return:  True if all jobs complete
+        :rtype: bool
+        """
         for k, v in self.list.items():
             if platform != '':
                 if v.platform != platform:
@@ -1782,6 +1813,11 @@ class JOB_LIST:
         return True
 
     def num_cpu_jobs(self):
+        """
+        Return the number of cpu jobs.
+        :return: Number of cpu jobs
+        :rtype: int
+        """
         cnt = 0
         for k, v in self.list.items():
             if v.platform == 'CPU' or v.platform == 'REF':
@@ -1789,25 +1825,51 @@ class JOB_LIST:
         return cnt
 
     def num_gpu_jobs(self):
+        """
+        Return the number of gpu jobs.
+        :return: Number of gpu jobs
+        :rtype: int
+        """
         cnt = 0
         for k, v in self.list.items():
             if v.platform == 'GPU':
                 cnt += 1
         return cnt
 
-    def count_pending_pjobs(self, platform_list=['CPU', 'GPU']):
+    def count_pending_pjobs(self, platform_list=('CPU', 'GPU')):
+        """
+        Returns the number of pending jobs for the platforms in the given list.
+        :param platform_list: List of platform names
+        :type platform_list: list
+        :return: number of pending jobs
+        :rtype: int
+        """
         num_pending_jobs = 0
         for plat in platform_list:
             num_pending_jobs += self.pending_pjobs()[plat]
         return num_pending_jobs
 
     def request_job(self, platform):
+        """
+        Return next pending job for specified platform.
+        :param platform: Target platform
+        :type platform: str
+        :return: The uuid of next pending job or None if none are pending
+        :rtype: Union([str, None])
+        """
         for k, v in self.list.items():
             if v.state == 'PENDING' and v.platform == platform:
                 return v.uuid
-        return -1
+        return None
 
     def wait_for_complete_job(self, env):
+        """
+        Waits for next job to complete and return the freed slot.
+        :param env: Environment
+        :type env: BENCH_ENV
+        :return: freed slot ID
+        :rtype: int
+        """
         while True:
             time.sleep(3)
             for k, v in self.list.items():
@@ -2043,15 +2105,18 @@ class JOB_LIST:
                                 if mb_const.DEBUG: print('Clean slots removed: ', v.slot_dir + '/' + filename)
 
                         freed_slot = v.slot
-                        v.slot = -1
+                        v.slot = None
                         return freed_slot
 
 
 class SLOTS:
+    """
+    Slots are used as containers for compute jobs and one is created for each identified compute unit.
+    """
     def __init__(self, item_id):
         self.slot_num = item_id
         self.slot_dir = ''
-        self.device = -1
+        self.device = None
         self.platform = ''              # GPU, CPU
         self.job = ''                   # Job uuid
         self.state = 'EMPTY'            # EMPTY, ACTIVE
@@ -2059,15 +2124,34 @@ class SLOTS:
 
 
 class SLOTS_LIST:
+    """
+    Slots list is a object to store all available slots.
+    """
     def __init__(self):
         self.list = {}
 
     def create_slot_list(self, max_slots):
+        """
+        Initializes a slot list to contain slots for max_slots compute units.
+        :param max_slots: represents the number of total compute units to be used.
+        :type max_slots: int
+        :return: None
+        """
         self.list = {}
         for i in range(0, max_slots):
             self.list[i] = SLOTS(i)
 
     def initialize_slots(self, env, num_gpu_slots):
+        """
+        This will make the slots subdirectories to support job processing by each slot.  It will classify
+        and allocate SLOTS by platform.
+        :param env: Environment
+        :type env: BENCH_ENV
+        :param num_gpu_slots:  Number of slots to be allocated to GPU compute
+        :type num_gpu_slots: int
+        :return: True if succesful
+        :rtype: bool
+        """
         if os.path.isdir(env.slots_path):
             shutil.rmtree(env.slots_path)
         os.mkdir(env.slots_path)
@@ -2099,6 +2183,12 @@ class SLOTS_LIST:
         return True
 
     def all_complete(self, platform=''):
+        """
+        Check if all slots have completed processing.
+        :param platform:  specified platform, all if not specified
+        :return: True if all slots have completed processing
+        :rtype: bool
+        """
         if platform == 'REF': platform = 'CPU'
         for k, v in self.list.items():
             if platform != '':
@@ -2109,6 +2199,11 @@ class SLOTS_LIST:
         return True
 
     def available_pslots(self):
+        """
+        Return a dictionary of available slots by platform.
+        :return: dictionary of available slots by platform
+        :rtype: dict
+        """
         num_avail_slots = {'GPU': 0, 'CPU': 0, 'REF': 0}
         for k, v in self.list.items():
             if v.state == 'EMPTY':
@@ -2117,6 +2212,11 @@ class SLOTS_LIST:
         return num_avail_slots
 
     def available_slots(self):
+        """
+        Return the number of total available slots.
+        :return:  number of total available slots
+        :rtype: int
+        """
         num_avail_slots = 0
         for k, v in self.list.items():
             if v.state == 'EMPTY':
@@ -2124,6 +2224,20 @@ class SLOTS_LIST:
         return num_avail_slots
 
     def assign_job(self, jobs, slot_ID, job_ID, gpu_list, device):
+        """
+        Assign a job to a slot.
+        :param jobs: The job list
+        :type jobs: JOB_LIST
+        :param slot_ID: The slot number
+        :type slot_ID: int
+        :param job_ID: The job's uuid
+        :type job_ID: hex
+        :param gpu_list: GPU_LIST opject with all system GPUs
+        :type gpu_list: GPU_LIST
+        :param device: BOINC device number
+        :type device: int
+        :return: None
+        """
         self.list[slot_ID].state = 'ACTIVE'
         self.list[slot_ID].job = jobs.list[job_ID]
         jobs.list[job_ID].state = 'ACTIVE'
@@ -2134,17 +2248,36 @@ class SLOTS_LIST:
             jobs.list[job_ID].gpu_card.reset_energy()
 
     def request_slot(self, platform):
+        """
+        Get an available slot for a specific platform.
+        :param platform:  The specified platform
+        :type platform: str
+        :return: The slot number or None if none are available
+        :rtype: Union([int, None])
+        """
         if platform == 'REF': platform = 'CPU'
         for k, v in self.list.items():
             if v.state == 'EMPTY' and v.platform == platform:
                 return v.slot_num
-        return -1
+        return None
 
-    def free_slot(self, slot_ID):
-        self.list[slot_ID].state = 'EMPTY'
-        self.list[slot_ID].job = ''
+    def free_slot(self, slot_id):
+        """
+        Free the specified slot.
+        :param slot_id:  The slot's number
+        :type slot_id: int
+        :return: None
+        """
+        self.list[slot_id].state = 'EMPTY'
+        self.list[slot_id].job = ''
 
     def print(self, title=''):
+        """
+        Simple formatted output of slot list.
+        :param title: Title of the table output.
+        :type title: str
+        :return: None
+        """
         if title == '':
             print('Slot list:')
         else:
@@ -2157,7 +2290,7 @@ class SLOTS_LIST:
             slotnum_str = slotnum_str.ljust(8, '-')
             plat_str = ' ' + v.platform
             plat_str = plat_str.ljust(8, ' ')
-            if v.device < 0:
+            if v.device is None:
                 dev_str = ' NA'
             else:
                 dev_str = ' ' + str(v.device)
@@ -2173,7 +2306,17 @@ class SLOTS_LIST:
         print('##### ', i, ' total slots')
 
     def print_activity(self, joblist, compact_flag=False, fileptr=sys.stdout):
-        # Print is optimized for 112 columns
+        """
+        Formatted table output of slot list.
+        :param joblist: Object containing the list of jobs
+        :type joblist: JOB_LIST
+        :param compact_flag:  Flag to indicate compact table option.
+        :type compact_flag: bool
+        :param fileptr: specifies the output, default is stdout
+        :type fileptr: file
+        :return:  None
+        .. note:: Print is optimized for 112 columns
+        """
         num_jobs = joblist.jobcount_bystatus()
         print('\n   ' + str(num_jobs['COMPLETE']) + ' of ' + str(num_jobs['TOTAL']) + ' jobs complete\n', file=fileptr)
         print('┌─'.ljust(5, '─'), '─'.ljust(3, '─'), '─'.ljust(3, '─'),  '─'.ljust(40, '─'), '─'.ljust(30, '─'),
@@ -2194,7 +2337,7 @@ class SLOTS_LIST:
 
         for k, v in self.list.items():
             slotnum_str = ' ' + str(v.slot_num)
-            if v.device < 0:
+            if v.device is None:
                 dev_str = ' NA'
             else:
                 dev_str = ' ' + str(v.device)
@@ -2613,7 +2756,8 @@ def main():
                         slots.list[slot_num].job.state = 'COMPLETE'
                         slots.list[slot_num].job.exit_status = 'ERROR'
                         slots.list[slot_num].job.error = slots.list[slot_num].job.error + '[Job Execution error]'
-                        slots.free_slot(slots.list[slot_num])
+                        # slots.free_slot(slots.list[slot_num]) Not sure why PyCharm doesn't flag this
+                        slots.free_slot(slot_num)
                         print('ERROR: could not spawn MB process')
                     os.chdir(env.current_dir)
                     num_available_pslots = slots.available_pslots()
