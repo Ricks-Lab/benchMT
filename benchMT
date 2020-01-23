@@ -370,7 +370,9 @@ class GPU_ITEM:
             time_n = datetime.utcnow()
             delta_hrs = ((time_n - self.energy['tn']).total_seconds())/3600
             self.energy['tn'] = time_n
-            self.energy['cumulative'] += delta_hrs * self.power
+            self.energy['cumulative'] += delta_hrs * self.power/1000
+            if mb_const.DEBUG: print('Cumulative Energy for {}: {} kWh'.format(self.pcie_id,
+                                                                               round(self.energy['cumulative'], 6)))
             return True
         else:
             print('Error: Power read failed for GPU-{}: [{}]'.format(self.card_num, self.pcie_id), file=sys.stderr)
@@ -397,7 +399,7 @@ class GPU_ITEM:
                 if os.path.isfile(hw_power_file):
                     try:
                         with open(hw_power_file) as hwmon_file:
-                            power_reading = int(hwmon_file.readline())/1000000000.0
+                            power_reading = int(hwmon_file.readline())/1000000.0
                     except:
                         power_reading = None
                         if mb_const.DEBUG: print('Failed to make power reading for {}'.format(self.pcie_id))
@@ -413,7 +415,7 @@ class GPU_ITEM:
                     power_reading = None
                     if mb_const.DEBUG: print('Failed to make power reading for {}'.format(self.pcie_id))
 
-        if mb_const.DEBUG: print('power reading for {}: {}'.format(self.pcie_id, power_reading))
+        if mb_const.DEBUG: print('Power reading for {}: {} W'.format(self.pcie_id, power_reading))
         if set_energy_compatibility:
             self.energy_compatible = True if power_reading else False
 
@@ -499,7 +501,7 @@ class GPU_LIST:
         Use lspci to populate list of all installed GPUs.
         :return: True on success
         :rtype: bool
-        .. todo:: check in nvidia-smi can determine if cuda is available to generate cuda map
+        .. todo:: check in nvidia-smi can determine if cuda is available and generate cuda map
         """
         if not mb_const.cmd_lspci:
             return False
@@ -562,7 +564,7 @@ class GPU_LIST:
                         compute = True
                 else:
                     compute = True
-                compute = True # Always set compute = True for nvidia since I can not detect cuda
+                compute = True  # Always set compute = True for nvidia since I can not detect cuda
             searchObj = re.search(r'(INTEL|intel|Intel)', gpu_name)
             if searchObj:
                 vendor = 'INTEL'
@@ -704,7 +706,7 @@ class GPU_LIST:
         mb_const.env.resume_boinc()
         sys.exit(-1)
 
-    def set_env_boinc_GPU_details(self, env):
+    def set_env_boinc_gpu_details(self, env):
         """
         Set the remaining env parameters after GPU details are read.
         :param env:  The execution environment
@@ -738,9 +740,9 @@ class GPU_LIST:
                 elif energy:
                     if v.compute_compatible and v.energy_compatible:
                         if mb_const.DEBUG: v.print()
-                        gdlist.append('PCIE ID: {}, Model: {}'.format(v.pcie_id, v.model))
+                        gdlist.append('Card{}, PCIE ID: {}, Model: {}'.format(v.card_num, v.pcie_id, v.model))
                 else:
-                    gdlist.append('PCIE ID: {}, Model: {}'.format(v.pcie_id, v.model))
+                    gdlist.append('Card{}, PCIE ID: {}, Model: {}'.format(v.card_num, v.pcie_id, v.model))
         return gdlist
 
     def get_card_number_list(self, compute=False, energy=False):
@@ -1490,7 +1492,7 @@ class JOB_LIST:
                 line = line.strip()
                 if len(line) == 0: continue
                 if line[0] == '#': continue
-                if len(line) <2: continue
+                if len(line) < 2: continue
                 lineitems = line.split(maxsplit=1)
 
                 # check if entry is a mode item
@@ -1625,7 +1627,7 @@ class JOB_LIST:
 
     def print(self, compact_flag=False, show_skipped=False, fileptr=sys.stdout, title=''):
         """
-        Output formated job list table.
+        Output formatted job list table.
         :param compact_flag: Use compact format if true
         :type compact_flag: bool
         :param show_skipped:  show skipped jobs if true
@@ -1636,8 +1638,8 @@ class JOB_LIST:
         :type title: str
         :return: None
         """
-        i = 0
         # Print is optimized for 112 columns
+        i = 0
         num_jobs = self.jobcount_bystatus()
         if title == '':
             print('\n   ' + str(num_jobs['COMPLETE']) + ' of ' + str(num_jobs['TOTAL']) +
@@ -1995,13 +1997,13 @@ class JOB_LIST:
                                                 linestr = line.strip()
                                                 if len(linestr) == 0: continue
                                                 if linestr[0] == '#': continue
-                                                if len(linestr) <2: continue
+                                                if len(linestr) < 2: continue
                                                 if v.angle_range == 0:
                                                     searchObj = re.search('true_angle_range', linestr)
                                                     if searchObj:
                                                         lineItem = linestr.split('true_angle_range')
                                                         ar_str = re.sub(r'[^\d.]', '', lineItem[1])
-                                                        print('Angle Range: ['+ar_str + ']')
+                                                        if mb_const.DEBUG: print('Angle Range: ['+ar_str + ']')
                                                         v.angle_range = float(ar_str)
                                                         continue
                                                 searchObj = re.search(r'<spike>', linestr)
@@ -2051,7 +2053,7 @@ class JOB_LIST:
                                 print('MajPF:       ', v.time_majpf, file=env.sum_file_ptr)
                                 if env.mode_energy:
                                     if v.platform == 'GPU':
-                                        print('Energy:       %s kWh' % (v.energy), file=env.sum_file_ptr)
+                                        print('Energy:       %s kWh' % v.energy, file=env.sum_file_ptr)
                                 print('', file=env.sum_file_ptr)
     
                                 if ref_result_file != '' and not env.mode_astropulse:
@@ -2179,7 +2181,7 @@ class SLOTS_LIST:
         :type env: BENCH_ENV
         :param num_gpu_slots:  Number of slots to be allocated to GPU compute
         :type num_gpu_slots: int
-        :return: True if succesful
+        :return: True if successful
         :rtype: bool
         """
         if os.path.isdir(env.slots_path):
@@ -2513,7 +2515,7 @@ def main():
     # Initialize list of all GPUs
     gpu_list = GPU_LIST()
     gpu_list.set_gpu_list()
-    gpu_list.set_env_boinc_GPU_details(env)
+    gpu_list.set_env_boinc_gpu_details(env)
     env.card_num_list = gpu_list.get_card_number_list(compute=True)
 
     # Setup devmap
