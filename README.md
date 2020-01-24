@@ -63,6 +63,8 @@ and improved type checking by PyCharm.
 since I don't have any Nvidia GPUs.
 * Need to find a way to automate the mapping of BOINC device number to Linux card number or PCIE ID.
 Need help on this.
+* This package doesn't include a utility to compare AstroPulse results to a reference. If you know where
+a Linux version of this exists, please let me know.
 
 ## History
 #### New in Previous Release  -  [v1.6.0](https://github.com/Ricks-Lab/benchMT/releases/tag/v1.6.0)
