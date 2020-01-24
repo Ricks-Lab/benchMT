@@ -470,6 +470,7 @@ class GPU_LIST:
         ocl_device_name = ''
         ocl_device_version = ''
         ocl_index = ''
+        ocl_pcie_slot_id = ocl_pcie_bus_id = None
         for line in cmd.stdout:
             linestr = line.decode('utf-8').strip()
             if len(linestr) < 1:
@@ -486,6 +487,7 @@ class GPU_LIST:
                 continue
             if ocl_index == '':
                 ocl_index = cl_index
+                ocl_pcie_slot_id = ocl_pcie_bus_id = None
 
             # If new cl_index, then update opencl_map
             if cl_index != ocl_index:
@@ -495,6 +497,7 @@ class GPU_LIST:
                 ocl_pcie_id = ''
                 ocl_device_name = ''
                 ocl_device_version = ''
+                ocl_pcie_slot_id = ocl_pcie_bus_id = None
 
             param_str = lineItems[1]
             searchObj = re.search('CL_DEVICE_NAME', param_str)
@@ -514,8 +517,20 @@ class GPU_LIST:
                 continue
             searchObj = re.search('CL_DEVICE_PCI_BUS_ID_NV', param_str)
             if searchObj:
-                ocl_pcie_id = '{}:00.0'.format(hex(int(lineItems[2].strip()))[2:])
+                ocl_pcie_bus_id = hex(int(lineItems[2].strip()))
+                if ocl_pcie_slot_id is not None:
+                    ocl_pcie_id = '{}:{}.0'.format(ocl_pcie_bus_id[2:].zfill(2), ocl_pcie_slot_id[2:].zfill(2))
+                    ocl_pcie_slot_id = ocl_pcie_bus_id = None
+                    if mb_const.DEBUG: print('ocl_pcie_id [{}]'.format(ocl_pcie_id))
                 if mb_const.DEBUG: print('ocl_pcie_id [{}]'.format(ocl_pcie_id))
+                continue
+            searchObj = re.search('CL_DEVICE_SLOT_ID_NV', param_str)
+            if searchObj:
+                ocl_pcie_slot_id = hex(int(lineItems[2].strip()))
+                if ocl_pcie_bus_id is not None:
+                    ocl_pcie_id = '{}:{}.0'.format(ocl_pcie_bus_id[2:].zfill(2), ocl_pcie_slot_id[2:].zfill(2))
+                    ocl_pcie_slot_id = ocl_pcie_bus_id = None
+                    if mb_const.DEBUG: print('ocl_pcie_id [{}]'.format(ocl_pcie_id))
                 continue
 
         self.opencl_map.update({ocl_pcie_id: [ocl_device_name, ocl_device_version, ocl_index]})
