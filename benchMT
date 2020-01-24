@@ -484,7 +484,8 @@ class GPU_LIST:
                 ocl_device_version = lineItem[2].strip()
                 if mb_const.DEBUG: print('ocl_device_version [{}]'.format(ocl_device_version))
                 continue
-            searchObj = re.search('CL_DEVICE_TOPOLOGY_AMD', linestr)
+            #searchObj = re.search('CL_DEVICE_TOPOLOGY_AMD', linestr)
+            searchObj = re.search('CL_DEVICE_TOPOLOGY', linestr)
             if searchObj:
                 lineItem = linestr.split(':-:')
                 ocl_pcie_id = (lineItem[2].split()[1]).strip()
