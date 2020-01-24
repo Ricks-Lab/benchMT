@@ -17,7 +17,7 @@
  there will be too many slots to display, and the *--display_compact* option can used to further
  optimize the progress display.
 
- You may need to use the *--boinc_home* command option to specify the boinc home directory, which
+ You may need to use the *--boinc_home* command option to specify the BOINC home directory, which
  is required, since boinccmd is used. An alternative BenchCFG file can be specified with the 
  command line option *--cfg_file filename*.
  
@@ -51,18 +51,18 @@ lspci and clinfo, but still need a method for cuda capability detection.
 * Many core improvements for improved robustness and style.  Added reST docstrings for better supportability
 and improved type checking by PyCharm.
 * Extend energy mode to cover Nvidia, in addition to AMD GPU's.
-* *--noBS* on the command line will allow benchMT to function without a boinc installation.
+* *--noBS* on the command line will allow benchMT to function without a BOINC installation.
 * Check devmap and give more details to help user understand mapping of BOINC Devices to Driver Card Numbers.
-* Added command line option to purge cached kernel files from working directory.
-* Added command line option to display information on all installed GPUs.
+* Added *--purge_kernels* command line option to purge cached kernel files from working directory.
+* Added *--lsgpu* command line option to display information on all installed GPUs.
 
 ## Development Plans and Known Limitations
 * Doesn't work in console of server install of Ubuntu.  Need to investigate this.
 * Currently, running more than one job at a time on a single GPU is not supported. 
 * Need to find a method to find compute capable Nvidia GPUs.  Perhaps a call to nvidia-smi.  Need help on this,
 since I don't have any Nvidia GPUs.
-* Energy reporting feature only implemented for GPUs using amdgpu drivers.  If you know how to read current power
-for Nvidia GPUs and want to collaborate on implementing this feature, let me know!
+* Need to find a way to automate the mapping of BOINC device number to Linux card number or PCIE ID.
+Need help on this.
 
 ## History
 #### New in Previous Release  -  [v1.6.0](https://github.com/Ricks-Lab/benchMT/releases/tag/v1.6.0)
