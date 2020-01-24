@@ -255,7 +255,7 @@ class CFG_MODES:
         :rtype: None
         """
         for m, v in self.modes.items():
-            print('CFG_mode: %s %s' % (m, str(v)))
+            print('CFG_mode: {} {}'.format(m, str(v)))
 
 
 class GPU_ITEM:
@@ -517,7 +517,7 @@ class GPU_LIST:
             print('lspci failed to find GPUs')
             return False
 
-        if mb_const.DEBUG: print('Found %s GPUs' % len(pcie_ids))
+        if mb_const.DEBUG: print('Found {} GPUs'.format(len(pcie_ids)))
         for pcie_id in pcie_ids:
             gpu_uuid = uuid4().hex
             self.add(GPU_ITEM(gpu_uuid))
@@ -698,7 +698,7 @@ class GPU_LIST:
 
         for k, v in self.list.items():
             if v.card_num == card_num:
-                if mb_const.DEBUG: print(f'Device {device_num} maps to card {v.card_num}')
+                if mb_const.DEBUG: print('Device {} maps to card {}'.format(device_num, v.card_num))
                 return v
 
         print('Error: Invalid device map [{}] BOINC Device to GPU Card num'.format(device_num))
@@ -789,7 +789,7 @@ class BENCH_ENV:
         self.total_cpu_threads = 0
         self.total_cpu_cores = 0
         self.specified_max_threads = 0
-        self.total_gpu_threads = 0         # TODO currently total_gpu_threads = total_gpu_count, both needed for GPU SMT
+        self.total_gpu_threads = 0        # TODO currently total_gpu_threads = total_gpu_count, both needed for GPU SMT
         self.total_gpu_count = 0
         self.allocated_cthreads = 0
         self.allocated_gthreads = 0
@@ -1316,7 +1316,7 @@ class BENCH_ENV:
                         break
                     time.sleep(1)
             except:
-                print('Error: could not execute boinccmd: %s' % cmd_str, file=sys.stderr)
+                print('Error: could not execute boinccmd: {}'.format(cmd_str), file=sys.stderr)
         os.chdir(cwd)
 
     def resume_boinc(self):
@@ -1340,7 +1340,7 @@ class BENCH_ENV:
                         break
                     time.sleep(1)
             except:
-                print('Error: could not execute boinccmd: %s' % cmd_str, file=sys.stderr)
+                print('Error: could not execute boinccmd: {}'.format(cmd_str), file=sys.stderr)
         os.chdir(cwd)
         
     def print(self, fileptr=sys.stdout):
@@ -1387,15 +1387,15 @@ class BENCH_ENV:
         print('Allocated CPU Threads: ', self.allocated_cthreads, file=fileptr)
         print('Allocated GPU Threads: ', self.allocated_gthreads, file=fileptr)
         # Print Modes
-        print('Mode %s: %s' % ('yes', self.mode_yes), file=fileptr)
-        print('Mode %s: %s' % ('noBS', self.mode_noBS), file=fileptr)
-        print('Mode %s: %s' % ('std_signals', self.mode_std_signals), file=fileptr)
-        print('Mode %s: %s' % ('display_slots', self.mode_display_slots), file=fileptr)
-        print('Mode %s: %s' % ('display_compact', self.mode_display_compact), file=fileptr)
-        print('Mode %s: %s' % ('no_ref', self.mode_no_ref), file=fileptr)
-        print('Mode %s: %s' % ('force_ref', self.mode_force_ref), file=fileptr)
-        print('Mode %s: %s' % ('energy', self.mode_energy), file=fileptr)
-        print('Mode %s: %s' % ('astropulse', self.mode_astropulse), file=fileptr)
+        print('Mode {}: {}'.format('yes', self.mode_yes), file=fileptr)
+        print('Mode {}: {}'.format('noBS', self.mode_noBS), file=fileptr)
+        print('Mode {}: {}'.format('std_signals', self.mode_std_signals), file=fileptr)
+        print('Mode {}: {}'.format('display_slots', self.mode_display_slots), file=fileptr)
+        print('Mode {}: {}'.format('display_compact', self.mode_display_compact), file=fileptr)
+        print('Mode {}: {}'.format('no_ref', self.mode_no_ref), file=fileptr)
+        print('Mode {}: {}'.format('force_ref', self.mode_force_ref), file=fileptr)
+        print('Mode {}: {}'.format('energy', self.mode_energy), file=fileptr)
+        print('Mode {}: {}'.format('astropulse', self.mode_astropulse), file=fileptr)
 
 
 class BENCH_JOB:
@@ -2054,7 +2054,7 @@ class JOB_LIST:
                                 print('MajPF:       ', v.time_majpf, file=env.sum_file_ptr)
                                 if env.mode_energy:
                                     if v.platform == 'GPU':
-                                        print('Energy:       %s kWh' % v.energy, file=env.sum_file_ptr)
+                                        print('Energy:       {} kWh'.format(v.energy), file=env.sum_file_ptr)
                                 print('', file=env.sum_file_ptr)
     
                                 if ref_result_file != '' and not env.mode_astropulse:
@@ -2852,7 +2852,7 @@ def main():
 
     complete_time = datetime.utcnow()
     print('Finish Time: ' + complete_time.strftime('%c'), file=env.sum_file_ptr)
-    print('BenchMT run complete. Results location: %s' % env.summary_path)
+    print('BenchMT run complete. Results location: {}'.format(env.summary_path))
     print('')
 
     # close files 
