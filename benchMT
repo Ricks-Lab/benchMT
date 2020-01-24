@@ -524,7 +524,7 @@ class GPU_LIST:
                     if mb_const.DEBUG: print('ocl_pcie_id [{}]'.format(ocl_pcie_id))
                 if mb_const.DEBUG: print('ocl_pcie_id [{}]'.format(ocl_pcie_id))
                 continue
-            searchObj = re.search('CL_DEVICE_SLOT_ID_NV', param_str)
+            searchObj = re.search('CL_DEVICE_PCI_SLOT_ID_NV', param_str)
             if searchObj:
                 ocl_pcie_slot_id = hex(int(lineItems[2].strip()))
                 if ocl_pcie_bus_id is not None:
@@ -542,7 +542,6 @@ class GPU_LIST:
         Use lspci to populate list of all installed GPUs.
         :return: True on success
         :rtype: bool
-        .. todo:: check in nvidia-smi can determine if cuda is available and generate cuda map
         """
         if not mb_const.cmd_lspci:
             return False
