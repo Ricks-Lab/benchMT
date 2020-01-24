@@ -276,12 +276,13 @@ class GPU_ITEM:
         self.compute_compatible = False
         self.ocl_device_name = None
         self.ocl_device_version = None
+        self.ocl_device_index = None
         time_0 = datetime.utcnow()
         self.energy = {'t0': time_0, 'tn': time_0, 'cumulative': 0.0}
         self.power = -1
 
     def populate(self, pcie_id, gpu_name, vendor, driver_module, card_path, hwmon_path,
-                 energy, compute, ocl_dev, ocl_ver):
+                 energy, compute, ocl_dev, ocl_ver, ocl_index):
         """
         Populate elements of a GPU_ITEM.
         :param pcie_id: The pcid ID of the GPU.
@@ -304,6 +305,8 @@ class GPU_ITEM:
         :type ocl_dev: str
         :param ocl_ver: openCL version
         :type ocl_ver: str
+        :param ocl_ver: openCL index
+        :type ocl_ver: str
         :return: None
         :rtype: None
         """
@@ -318,6 +321,7 @@ class GPU_ITEM:
         self.compute_compatible = compute
         self.ocl_device_name = ocl_dev
         self.ocl_device_version = ocl_ver
+        self.ocl_device_index = ocl_index
 
     def print(self):
         """
@@ -332,6 +336,7 @@ class GPU_ITEM:
         print('    driver: {}'.format(self.driver))
         print('    openCL Device: {}'.format(self.ocl_device_name))
         print('    openCL Version: {}'.format(self.ocl_device_version))
+        print('    openCL Index: {}'.format(self.ocl_device_index))
         print('    card number: {}'.format(self.card_num))
         print('    BOINC Device number: {}'.format(self.boinc_device_num))
         print('    card path: {}'.format(self.card_path))
@@ -464,6 +469,7 @@ class GPU_LIST:
         ocl_pcie_id = ''
         ocl_device_name = ''
         ocl_device_version = ''
+        ocl_index = ''
         for line in cmd.stdout:
             linestr = line.decode('utf-8').strip()
             if len(linestr) < 1:
@@ -471,30 +477,49 @@ class GPU_LIST:
             if linestr[0] != '[':
                 continue
             linestr = re.sub(r'   [ ]*', ':-:', linestr)
-            searchObj = re.search('CL_DEVICE_NAME', linestr)
-            if searchObj:
-                # Found a new device
-                lineItem = linestr.split(':-:')
-                ocl_device_name = lineItem[2].strip()
-                if mb_const.DEBUG: print('ocl_device_name [{}]'.format(ocl_device_name))
+            lineItems = linestr.split(':-:')
+            if len(lineItems) != 3:
                 continue
-            searchObj = re.search('CL_DEVICE_VERSION', linestr)
-            if searchObj:
-                lineItem = linestr.split(':-:')
-                ocl_device_version = lineItem[2].strip()
-                if mb_const.DEBUG: print('ocl_device_version [{}]'.format(ocl_device_version))
+            cl_vender, cl_index = tuple(re.sub(r'[\[\]]', '', lineItems[0]).split('/'))
+            # print('cl_vendor: {}, cl_index: {}'.format(cl_vender, cl_index))
+            if cl_index == '*':
                 continue
-            #searchObj = re.search('CL_DEVICE_TOPOLOGY_AMD', linestr)
-            searchObj = re.search('CL_DEVICE_TOPOLOGY', linestr)
-            if searchObj:
-                lineItem = linestr.split(':-:')
-                ocl_pcie_id = (lineItem[2].split()[1]).strip()
-                if mb_const.DEBUG: print('ocl_pcie_id [{}]'.format(ocl_pcie_id))
-                self.opencl_map.update({ocl_pcie_id: [ocl_device_name, ocl_device_version]})
+            if ocl_index == '':
+                ocl_index = cl_index
+
+            # If new cl_index, then update opencl_map
+            if cl_index != ocl_index:
+                self.opencl_map.update({ocl_pcie_id: [ocl_device_name, ocl_device_version, ocl_index]})
+                if mb_const.DEBUG: print('cl_index: {}'.format(self.opencl_map[ocl_pcie_id]))
+                ocl_index = cl_index
                 ocl_pcie_id = ''
                 ocl_device_name = ''
                 ocl_device_version = ''
+
+            param_str = lineItems[1]
+            searchObj = re.search('CL_DEVICE_NAME', param_str)
+            if searchObj:
+                ocl_device_name = lineItems[2].strip()
+                if mb_const.DEBUG: print('ocl_device_name [{}]'.format(ocl_device_name))
                 continue
+            searchObj = re.search('CL_DEVICE_VERSION', param_str)
+            if searchObj:
+                ocl_device_version = lineItems[2].strip()
+                if mb_const.DEBUG: print('ocl_device_version [{}]'.format(ocl_device_version))
+                continue
+            searchObj = re.search('CL_DEVICE_TOPOLOGY', param_str)
+            if searchObj:
+                ocl_pcie_id = (lineItems[2].split()[1]).strip()
+                if mb_const.DEBUG: print('ocl_pcie_id [{}]'.format(ocl_pcie_id))
+                continue
+            searchObj = re.search('CL_DEVICE_PCI_BUS_ID_NV', param_str)
+            if searchObj:
+                ocl_pcie_id = '{}:00.0'.format(hex(int(lineItems[2].strip()))[2:])
+                if mb_const.DEBUG: print('ocl_pcie_id [{}]'.format(ocl_pcie_id))
+                continue
+
+        self.opencl_map.update({ocl_pcie_id: [ocl_device_name, ocl_device_version, ocl_index]})
+        if mb_const.DEBUG: print('cl_index: {}'.format(self.opencl_map[ocl_pcie_id]))
         return True
 
     def set_gpu_list(self):
@@ -543,6 +568,7 @@ class GPU_LIST:
             vendor = 'UNKNOWN'
             opencl_device_name = None
             opencl_device_version = None
+            opencl_device_index = None
             searchObj = re.search(r'(AMD|amd|ATI|ati)', gpu_name)
             if searchObj:
                 vendor = 'AMD'
@@ -551,6 +577,7 @@ class GPU_LIST:
                     if pcie_id in self.opencl_map.keys():
                         opencl_device_name = self.opencl_map[pcie_id][0]
                         opencl_device_version = self.opencl_map[pcie_id][1]
+                        opencl_device_index = self.opencl_map[pcie_id][2]
                         compute = True
                 else:
                     compute = True
@@ -562,6 +589,7 @@ class GPU_LIST:
                     if pcie_id in self.opencl_map.keys():
                         opencl_device_name = self.opencl_map[pcie_id][0]
                         opencl_device_version = self.opencl_map[pcie_id][1]
+                        opencl_device_index = self.opencl_map[pcie_id][2]
                         compute = True
                 else:
                     compute = True
@@ -574,6 +602,7 @@ class GPU_LIST:
                     if pcie_id in self.opencl_map.keys():
                         opencl_device_name = self.opencl_map[pcie_id][0]
                         opencl_device_version = self.opencl_map[pcie_id][1]
+                        opencl_device_index = self.opencl_map[pcie_id][2]
                         compute = True
                 else:
                     searchObj = re.search(r' 530', gpu_name)
@@ -618,7 +647,7 @@ class GPU_LIST:
 
             self.list[gpu_uuid].populate(pcie_id, gpu_name, vendor, driver_module,
                                          card_path, hwmon_path, energy, compute,
-                                         opencl_device_name, opencl_device_version)
+                                         opencl_device_name, opencl_device_version, opencl_device_index)
 
             # Set energy compatibility
             self.list[gpu_uuid].get_power(set_energy_compatibility=True)
