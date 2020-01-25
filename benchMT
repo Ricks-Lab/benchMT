@@ -101,6 +101,7 @@ class MB_CONST:
         self.command_line_filename = 'BenchCFG'
         self.boinccmd = 'boinccmd'
         self.template_file = 'init_data.xml.template'
+        self.coproc_file = 'coproc_info.xml'
         self.wu_cmp = 'rescmpv5_l'
         self.suspend_args = ['boinccmd --set_gpu_mode never 172800', 'boinccmd --set_run_mode never 172800']
         self.resume_args = ['boinccmd --set_gpu_mode never 1', 'boinccmd --set_run_mode never 1']
@@ -140,6 +141,7 @@ class MB_CONST:
         print('mb_const.command_line_filename: [{}]'.format(self.command_line_filename))
         print('mb_const.boinccmd: [{}]'.format(self.boinccmd))
         print('mb_const.template_file: [{}]'.format(self.template_file))
+        print('mb_const.coproc_file: [{}]'.format(self.coproc_file))
         print('mb_const.wu_cmp: [{}]'.format(self.wu_cmp))
         print('mb_const.suspend_args: [{}]'.format(self.suspend_args))
         print('mb_const.resume_args: [{}]'.format(self.resume_args))
@@ -477,12 +479,12 @@ class GPU_LIST:
                 continue
             if linestr[0] != '[':
                 continue
-            linestr = re.sub(r'   [ ]*', ':-:', linestr)
-            lineItems = linestr.split(':-:')
+            #linestr = re.sub(r'   [ ]*', ':-:', linestr)
+            #lineItems = linestr.split(':-:')
+            lineItems = linestr.split(maxsplit=2)
             if len(lineItems) != 3:
                 continue
             cl_vender, cl_index = tuple(re.sub(r'[\[\]]', '', lineItems[0]).split('/'))
-            # print('cl_vendor: {}, cl_index: {}'.format(cl_vender, cl_index))
             if cl_index == '*':
                 continue
             if ocl_index == '':
@@ -607,7 +609,6 @@ class GPU_LIST:
                         compute = True
                 else:
                     compute = True
-                compute = True  # Always set compute = True for nvidia since I can not detect cuda
             searchObj = re.search(r'(INTEL|intel|Intel)', gpu_name)
             if searchObj:
                 vendor = 'INTEL'
