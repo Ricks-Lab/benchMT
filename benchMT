@@ -101,7 +101,7 @@ class MB_CONST:
         self.command_line_filename = 'BenchCFG'
         self.boinccmd = 'boinccmd'
         self.template_file = 'init_data.xml.template'
-        self.coproc_file = 'coproc_info.xml'
+        self.coproc_file_name = 'coproc_info.xml'
         self.wu_cmp = 'rescmpv5_l'
         self.suspend_args = ['boinccmd --set_gpu_mode never 172800', 'boinccmd --set_run_mode never 172800']
         self.resume_args = ['boinccmd --set_gpu_mode never 1', 'boinccmd --set_run_mode never 1']
@@ -141,7 +141,7 @@ class MB_CONST:
         print('mb_const.command_line_filename: [{}]'.format(self.command_line_filename))
         print('mb_const.boinccmd: [{}]'.format(self.boinccmd))
         print('mb_const.template_file: [{}]'.format(self.template_file))
-        print('mb_const.coproc_file: [{}]'.format(self.coproc_file))
+        print('mb_const.coproc_file_name: [{}]'.format(self.coproc_file_name))
         print('mb_const.wu_cmp: [{}]'.format(self.wu_cmp))
         print('mb_const.suspend_args: [{}]'.format(self.suspend_args))
         print('mb_const.resume_args: [{}]'.format(self.resume_args))
@@ -307,8 +307,8 @@ class GPU_ITEM:
         :type ocl_dev: str
         :param ocl_ver: openCL version
         :type ocl_ver: str
-        :param ocl_ver: openCL index
-        :type ocl_ver: str
+        :param ocl_index: openCL index
+        :type ocl_index: str
         :return: None
         :rtype: None
         """
@@ -351,6 +351,7 @@ class GPU_ITEM:
         Reset energy metrics to time zero state.
         :return: None
         :rtype: None
+        .. note:: Energy is stored in kWh.
         """
         time_0 = datetime.utcnow()
         self.energy = {'t0': time_0, 'tn': time_0, 'cumulative': 0.0}
@@ -358,7 +359,7 @@ class GPU_ITEM:
     def get_energy(self):
         """
         Return the cumulative energy.
-        :return:  cumulative energy
+        :return:  cumulative energy in kWh
         :rtype: float
         """
         return self.energy['cumulative']
@@ -369,6 +370,7 @@ class GPU_ITEM:
         call to the cumulative energy value.
         :return: True if successful
         :rtype: bool
+        .. note:: Power is in W and Energy is in kWh.
         """
         if not self.energy_compatible:
             return False
@@ -392,6 +394,7 @@ class GPU_ITEM:
         :type set_energy_compatibility: bool
         :return: power reading in Watts
         :rtype: Union([float, None])
+        .. note:: Measured power is converted to Watts.
         """
         power_reading = None
         # If not called as part of compatibility check, then check compatibility
@@ -416,8 +419,8 @@ class GPU_ITEM:
                 try:
                     nsmi_items = subprocess.check_output(
                                  '{} -i {} --query-gpu=power.draw --format=csv,noheader,nounits'.format(
-                                 mb_const.cmd_nvidia_smi, self.pcie_id), shell=True).decode().split('\n')
-                    power_reading = nsmi_items[0]
+                                  mb_const.cmd_nvidia_smi, self.pcie_id), shell=True).decode().split('\n')
+                    power_reading = float(nsmi_items[0].strip())
                 except:
                     power_reading = None
                     if mb_const.DEBUG: print('Failed to make power reading for {}'.format(self.pcie_id))
@@ -431,12 +434,13 @@ class GPU_ITEM:
 
 class GPU_LIST:
     """
-    An object that stores all GPU objects and other critial parameters.
+    An object that stores all GPU objects and other critical parameters.
     """
     def __init__(self):
         self.list = {}
-        self.devmap = {}
-        self.opencl_map = {}
+        self.devmap = {}      # BOINC Device to Card num map
+        self.dev2climap = {}  # BOINC Device to CL index map
+        self.opencl_map = {}  # {ocl_pcie_id: [ocl_device_name, ocl_device_version, ocl_index]}
 
     def print(self):
         """
@@ -457,11 +461,36 @@ class GPU_LIST:
         """
         self.list[gpu_item.uuid] = gpu_item
 
+    def read_gpu_coproc_file(self):
+        if mb_const.env.coproc_file is None:
+            print('coproc_info.xml file not found: [{}]'.format(mb_const.env.coproc_file))
+            return False
+        device_num = opencl_device_index = None
+        with open(mb_const.env.coproc_file, 'r') as file_ptr:
+            lines = file_ptr.readlines()
+            for linestr in lines:
+                linestr = linestr.strip()
+                searchObj = re.search('device_num', linestr)
+                if searchObj:
+                    device_num = re.sub(r'<[/]*device_num>', '', linestr)
+                    if mb_const.DEBUG: print('device_num: [{}]'.format(device_num))
+                searchObj = re.search('opencl_device_index', linestr)
+                if searchObj:
+                    opencl_device_index = re.sub(r'<[/]*opencl_device_index>', '', linestr)
+                    if mb_const.DEBUG: print('opencl_device_index: [{}]'.format(opencl_device_index))
+                searchObj = re.search(r'</(nvidia|ati)_opencl>', linestr)
+                if searchObj:
+                    if mb_const.DEBUG: print('device_num: opencl_device_index [{}: {}]'.format(device_num, opencl_device_index))
+                    if device_num is not None and opencl_device_index is not None:
+                        self.dev2climap.update({int(device_num): int(opencl_device_index)})
+                        device_num = opencl_device_index = None
+
     def read_gpu_opencl_data(self):
         """
         Use clinfo system call to get openCL details for relevant GPUs.
         :return:  Returns True if successful
         :rtype:  bool
+        .. todo:: Read of Intel pcie_id is not working.
         """
         # Check access to clinfo command
         if not mb_const.cmd_clinfo:
@@ -479,8 +508,6 @@ class GPU_LIST:
                 continue
             if linestr[0] != '[':
                 continue
-            #linestr = re.sub(r'   [ ]*', ':-:', linestr)
-            #lineItems = linestr.split(':-:')
             lineItems = linestr.split(maxsplit=2)
             if len(lineItems) != 3:
                 continue
@@ -548,6 +575,9 @@ class GPU_LIST:
             return False
         self.read_gpu_opencl_data()
         if mb_const.DEBUG: print(self.opencl_map)
+        self.read_gpu_coproc_file()
+        if mb_const.DEBUG: print(self.dev2climap)
+        print(self.dev2climap)
 
         try:
             pcie_ids = subprocess.check_output('{} | grep -E \"^.*(VGA|3D|Display).*$\" | grep -Eo \
@@ -657,7 +687,7 @@ class GPU_LIST:
             if len(hw_file_srch) > 1:
                 print('More than one hwmon file found: ', hw_file_srch)
             elif len(hw_file_srch) == 1:
-                hwmon_path = hw_file_srch[0] + '/'
+                hwmon_path = hw_file_srch[0]
 
             self.list[gpu_uuid].populate(pcie_id, gpu_name, vendor, driver_module,
                                          card_path, hwmon_path, energy, compute,
@@ -668,6 +698,10 @@ class GPU_LIST:
         return True
 
     def apply_devmap(self):
+        """
+        Applies the devmap to the GPU_LIST, by updating boinc_device_num in each GPU_ITEM.
+        :return: None
+        """
         for k, v in self.list.items():
             for dmk, dmv in self.devmap.items():
                 if v.card_num == dmv:
@@ -773,6 +807,7 @@ class GPU_LIST:
         :type energy: bool
         :return: Returns a list of GPU details.
         :rtype: list
+        .. todo:: Maybe add boinc device number when mapping is complete
         """
         gdlist = []
         for k, v in self.list.items():
@@ -876,6 +911,7 @@ class BENCH_ENV:
         self.mode_astropulse = False
         self.boinc_home = mb_const.boinc_home
         self.init_data_template_file = ''
+        self.coproc_file = None
 
     def process_options(self, args, cfg_modes):
         """
@@ -1009,29 +1045,36 @@ class BENCH_ENV:
         # Check python version
         required_pversion = [3, 6]
         (python_major, python_minor, python_patch) = platform.python_version_tuple()
-        if mb_const.DEBUG: print('Using python ' + python_major + '.' + python_minor + '.' + python_patch)
+        if mb_const.DEBUG: print('Using python: {}.{}.{}'.format(python_major, python_minor, python_patch))
         if int(python_major) < required_pversion[0]:
-            print('Using python' + python_major + ', but ' + __program_name__ + ' requires python ' +
-                  str(required_pversion[0]) + '.' + str(required_pversion[1]) + ' or higher.',
+            print('Using python {}, but {} requires python {}.{} or higher.'.format(python_major, __program_name__,
+                                                                                    required_pversion[0],
+                                                                                    required_pversion[1]),
                   file=sys.stderr)
             return -1
         elif int(python_major) == required_pversion[0] and int(python_minor) < required_pversion[1]:
-            print('Using python ' + python_major + '.' + python_minor + '.' + python_patch + ', but ' +
-                  __program_name__ + ' requires python ' + str(required_pversion[0]) + '.' +
-                  str(required_pversion[1]) + ' or higher.', file=sys.stderr)
+            print('Using python {}.{}.{}, but {} requires python {}.{} or higher.'.format(python_major, python_minor,
+                                                                                          python_patch,
+                                                                                          __program_name__,
+                                                                                          required_pversion[0],
+                                                                                          required_pversion[1]),
+                  file=sys.stderr)
             return -1
 
         # Check Linux Kernel version
         required_kversion = [4, 8]
         linux_version = platform.release()
+        if mb_const.DEBUG: print('Using Linux Kernel: {}'.format(linux_version))
         if int(linux_version.split('.')[0]) < required_kversion[0]:
-            print('Using Linux Kernel ' + linux_version + ', but ' + __program_name__ + ' requires > ' +
-                  str(required_kversion[0]) + '.' + str(required_kversion[1]), file=sys.stderr)
+            print('Using Linux Kernel {}, but {} requires > {}.{}.'.format(linux_version, __program_name__,
+                                                                           required_kversion[0], required_kversion[1]),
+                  file=sys.stderr)
             return -2
         elif int(linux_version.split('.')[0]) == required_kversion[0] and \
                                               int(linux_version.split('.')[1]) < required_kversion[1]:
-            print('Using Linux Kernel ' + linux_version + ', but ' + __program_name__ + ' requires > ' +
-                  str(required_kversion[0]) + '.' + str(required_kversion[1]), file=sys.stderr)
+            print('Using Linux Kernel {}, but {} requires > {}.{}.'.format(linux_version, __program_name__,
+                                                                           required_kversion[0], required_kversion[1]),
+                  file=sys.stderr)
             return -2
 
         # Check access/paths to system commands
@@ -1154,7 +1197,7 @@ class BENCH_ENV:
                 valid = False
 
         # Set working directories
-        self.current_dir = os.getcwd() + '/'
+        self.current_dir = os.getcwd()
         self.workdir_path = os.path.join(self.current_dir, mb_const.workdir_subdir)
         self.cpu_app_path = os.path.join(self.current_dir, mb_const.cpu_app_subdir)
         self.gpu_app_path = os.path.join(self.current_dir, mb_const.gpu_app_subdir)
@@ -1202,11 +1245,20 @@ class BENCH_ENV:
         if not os.path.isdir(self.wu_std_signal_path):
             print('STD SIGNAL WU Path [', self.wu_std_signal_path, '] does not exist')
             valid = False
+
         # Set CFG file location
         self.command_line_file = os.path.join(self.current_dir, mb_const.command_line_filename)
         if not os.path.isfile(self.command_line_file):
             print('BenchCFG [', self.command_line_file, '] does not exist.')
             valid = False
+
+        # Set coproc_info file
+        if not mb_const.noBS:
+            self.coproc_file = os.path.join(self.boinc_home, mb_const.coproc_file_name)
+            if not os.path.isfile(self.coproc_file):
+                print('coproc_file [{}] does not exist'.format(self.coproc_file))
+                self.coproc_file = None
+
         return valid
 
     def set_env_boinc(self):
@@ -1218,26 +1270,32 @@ class BENCH_ENV:
         valid = True
         if not mb_const.noBS:
             if not os.path.isdir(self.boinc_home):
-                print('BOINC Home Path [', self.boinc_home, '] does not exist')
+                print('BOINC Home Path [{}] does not exist'.format(self.boinc_home))
                 print('Please set the correct BOINC Home Path with the --boinc_home command line option')
                 valid = False
 
         self.wucmpcmd = os.path.join(self.current_dir, mb_const.wu_cmp)
         if not os.path.isfile(self.wucmpcmd):
-            print('Results Compare Utility [', self.wucmpcmd, '] does not exist')
+            print('Results Compare Utility [{}] does not exist'.format(self.wucmpcmd))
             valid = False
+
         if not mb_const.noBS:
             self.boinccmd = os.path.join(self.boinc_home, mb_const.boinccmd)
             if not os.path.isfile(self.boinccmd):
-                print('boinccmd [', self.boinccmd, '] does not exist')
+                print('boinccmd [{}] does not exist'.format(self.boinccmd))
                 valid = False
-        if not os.path.isfile(self.init_data_template_file):
-            print('init_data.xml_template file [', self.init_data_template_file, '] does not exist, creating...')
+            #self.coproc_file = os.path.join(self.boinc_home, mb_const.coproc_file_name)
+            #if not os.path.isfile(self.coproc_file):
+                #print('coproc_file [{}] does not exist'.format(self.coproc_file))
+                #self.coproc_file = None
+            if not os.path.isfile(self.init_data_template_file):
+                print('init_data.xml_template file [{}] does not exist, creating...'.format(
+                      self.init_data_template_file))
             with open(self.init_data_template_file, 'w') as fileptr:
                 print('<app_init_data>', file=fileptr)
                 print('<app_name>setiathome_v8</app_name>', file=fileptr)
-                print('<project_dir>' + self.workdir_path + '</project_dir>', file=fileptr)
-                print('<boinc_dir>' + self.boinc_home + '</boinc_dir>', file=fileptr)
+                print('<project_dir>{}</project_dir>'.format(self.workdir_path), file=fileptr)
+                print('<boinc_dir>{}</boinc_dir>'.format(self.boinc_home), file=fileptr)
                 print('</app_init_data>', file=fileptr)
         return valid
 
@@ -1251,10 +1309,10 @@ class BENCH_ENV:
             print('benchMT workdir Path [{}] does not exist, can not purge cache...'.format(self.workdir_path))
         else:
             print('Purging cached kernels from: [{}]'.format(self.workdir_path))
-        for file_str in glob.glob(self.workdir_path + 'MB_clFFTplan*'):
+        for file_str in glob.glob(os.path.join(self.workdir_path, 'MB_clFFTplan*')):
             os.remove(file_str)
             print('Removed: {}'.format(file_str))
-        for file_str in glob.glob(self.workdir_path + 'MultiBeam_Kernels*.cl[0-9,a-z,A-Z]*'):
+        for file_str in glob.glob(os.path.join(self.workdir_path, 'MultiBeam_Kernels*.cl[0-9,a-z,A-Z]*')):
             os.remove(file_str)
             print('Removed: {}'.format(file_str))
 
@@ -1266,25 +1324,25 @@ class BENCH_ENV:
         """
         # Check/Make working directories
         if not os.path.isdir(self.cpu_app_path):
-            print('CPU APP Path [', self.cpu_app_path, '] does not exist, making...')
+            print('CPU APP Path [{}] does not exist, making...'.format(self.cpu_app_path))
             os.mkdir(self.cpu_app_path)
         if not os.path.isdir(self.gpu_app_path):
-            print('GPU APP Path [', self.gpu_app_path, '] does not exist, making...')
+            print('GPU APP Path [{}] does not exist, making...'.format(self.gpu_app_path))
             os.mkdir(self.gpu_app_path)
         if not os.path.isdir(self.ref_app_path):
-            print('REFERENCE APP Path [', self.ref_app_path, '] does not exist, making...')
+            print('REFERENCE APP Path [{}] does not exist, making...'.format(self.ref_app_path))
             os.mkdir(self.ref_app_path)
         if not os.path.isdir(self.ref_results_path):
-            print('REFERENCE RESULTS Path [', self.ref_results_path, '] does not exist, making...')
+            print('REFERENCE RESULTS Path [{}] does not exist, making...'.format(self.ref_results_path))
             os.mkdir(self.ref_results_path)
         if not os.path.isdir(self.wu_path):
-            print('WU Path [', self.wu_path, '] does not exist, making...')
+            print('WU Path [{}] does not exist, making...'.format(self.wu_path))
             os.mkdir(self.wu_path)
         if not os.path.isdir(self.wu_std_signal_path):
-            print('STD SIGNAL WU Path [', self.wu_std_signal_path, '] does not exist, making...')
+            print('STD SIGNAL WU Path [{}] does not exist, making...'.format(self.wu_std_signal_path))
             os.mkdir(self.wu_std_signal_path)
         if not os.path.isdir(self.testdata_path):
-            print('TestData Path [', self.testdata_path, '] does not exist, making...')
+            print('TestData Path [{}] does not exist, making...'.format(self.testdata_path))
             os.mkdir(self.testdata_path)
 
     def is_bench_conflict(self):
@@ -1394,10 +1452,8 @@ class BENCH_ENV:
         """
         print('Hostname: ', self.hostname, file=fileptr)
         print('Run Name: ', self.run_name, file=fileptr)
-        if self.mode_astropulse:
-            print('APP Mode: ', 'AstroPulse', file=fileptr)
-        else:
-            print('APP Mode: ', 'MultiBeam', file=fileptr)
+        appmode = 'AstroPulse' if self.mode_astropulse else 'MultiBeam'
+        print('APP Mode: ', appmode, file=fileptr)
         print('benchMT version: ', __version__, file=fileptr)
         print('Platform: ', self.platform, file=fileptr)
         print('OS Description: ', self.os_desc, file=fileptr)
@@ -1534,9 +1590,9 @@ class JOB_LIST:
         with open(env.command_line_file, 'r') as clfptr:
             for line in clfptr:
                 line = line.strip()
-                if len(line) == 0: continue
-                if line[0] == '#': continue
+                #if len(line) == 0: continue
                 if len(line) < 2: continue
+                if line[0] == '#': continue
                 lineitems = line.split(maxsplit=1)
 
                 # check if entry is a mode item
@@ -2039,9 +2095,8 @@ class JOB_LIST:
                                         with open(cur_result_file, 'r') as resfptr:
                                             for line in resfptr:
                                                 linestr = line.strip()
-                                                if len(linestr) == 0: continue
-                                                if linestr[0] == '#': continue
                                                 if len(linestr) < 2: continue
+                                                if linestr[0] == '#': continue
                                                 if v.angle_range == 0:
                                                     searchObj = re.search('true_angle_range', linestr)
                                                     if searchObj:
@@ -2731,18 +2786,23 @@ def main():
 
     # Make testData subdirectory for this run and open summary file for writing
     # Update summary_path in case the run name was set
-    env.summary_path = os.path.join(env.testdata_path,
-                                    (env.hostname + '_benchMT_' + env.run_name + '_' + env.time_now_short + '/'))
-    env.summary_file = env.summary_path + env.hostname + '.testlog.' + env.run_name + '_' + env.time_now_short + '.txt'
-    env.psv_file = env.summary_path + env.hostname + '.timelog.' + env.run_name + '_' + env.time_now_short + '.psv'
+    env.summary_path = os.path.join(env.testdata_path, '{}_benchMT_{}_{}'.format(env.hostname,
+                                                                                 env.run_name,
+                                                                                 env.time_now_short))
+    env.summary_file = os.path.join(env.summary_path, '{}_testlog_{}_{}.txt'.format(env.hostname,
+                                                                                    env.run_name,
+                                                                                    env.time_now_short))
+    env.psv_file = os.path.join(env.summary_path, '{}_timelog_{}_{}.psv'.format(env.hostname,
+                                                                                env.run_name,
+                                                                                env.time_now_short))
 
     os.mkdir(env.summary_path)
     if not os.path.isdir(env.summary_path):
-        print('Failed to make benchMT testData subdir [', env.summary_path, ']')
+        print('Failed to make benchMT testData subdir [{}]'.format(env.summary_path))
         sys.exit(-1)
     env.sum_file_ptr = open(env.summary_file, 'w', 1)
     env.psv_file_ptr = open(env.psv_file, 'w', 1)
-    print(__program_name__ + ' ' + __version__ + ' \u2015 SETI MB/AP Benchmarking Utility \u2015 Linux Edition\n',
+    print('{} {} \u2015 SETI MB/AP Benchmarking Utility \u2015 Linux Edition\n'.format(__program_name__, __version__),
           file=env.sum_file_ptr)
     if not env.mode_noBS:
         print('Suspending BOINC\n', file=env.sum_file_ptr)
