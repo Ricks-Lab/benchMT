@@ -524,7 +524,6 @@ class GPU_LIST:
                     ocl_pcie_id = '{}:{}.0'.format(ocl_pcie_bus_id[2:].zfill(2), ocl_pcie_slot_id[2:].zfill(2))
                     ocl_pcie_slot_id = ocl_pcie_bus_id = None
                     if mb_const.DEBUG: print('ocl_pcie_id [{}]'.format(ocl_pcie_id))
-                if mb_const.DEBUG: print('ocl_pcie_id [{}]'.format(ocl_pcie_id))
                 continue
             searchObj = re.search('CL_DEVICE_PCI_SLOT_ID_NV', param_str)
             if searchObj:
