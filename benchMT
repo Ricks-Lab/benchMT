@@ -235,6 +235,7 @@ class CFG_MODES:
                 return False
         elif self.type[mode_name] == 'String':
             self.modes[mode_name] = mode_value
+            return True
         else:
             return False
 
@@ -574,10 +575,9 @@ class GPU_LIST:
         if not mb_const.cmd_lspci:
             return False
         self.read_gpu_opencl_data()
-        if mb_const.DEBUG: print(self.opencl_map)
+        if mb_const.DEBUG: print('openCL map: {}'.format(self.opencl_map))
         self.read_gpu_coproc_file()
-        if mb_const.DEBUG: print(self.dev2climap)
-        print(self.dev2climap)
+        if mb_const.DEBUG: print('device to cl_index map: {}'.format(self.dev2climap))
 
         try:
             pcie_ids = subprocess.check_output('{} | grep -E \"^.*(VGA|3D|Display).*$\" | grep -Eo \
@@ -674,7 +674,7 @@ class GPU_LIST:
 
             # Get full card path
             card_path = None
-            device_dirs = glob.glob(mb_const.card_root + 'card?/device')
+            device_dirs = glob.glob(os.path.join(mb_const.card_root, 'card?/device'))
             for device_dir in device_dirs:
                 sysfspath = str(Path(device_dir).resolve())
                 if pcie_id == sysfspath[-7:]:
@@ -841,11 +841,9 @@ class GPU_LIST:
             if v.card_num >= 0:
                 if compute:
                     if v.compute_compatible:
-                        #if mb_const.DEBUG: v.print()
                         cnlist.append(v.card_num)
                 elif energy:
                     if v.compute_compatible and v.energy_compatible:
-                        #if mb_const.DEBUG: v.print()
                         cnlist.append(v.card_num)
                 else:
                     cnlist.append(v.card_num)
@@ -968,7 +966,7 @@ class BENCH_ENV:
         elif cfg_modes.mode_value('boinc_home'):
             if len(cfg_modes.mode_value('boinc_home')) > 0 and cfg_modes.mode_value('boinc_home').isprintable():
                 self.boinc_home = cfg_modes.mode_value('boinc_home')
-    
+
         # mode_run_name
         if len(args.run_name) > 0 and args.run_name.isprintable():
             self.run_name = args.run_name.replace(' ', '').replace('/', '').replace('\\', '')
@@ -1123,7 +1121,7 @@ class BENCH_ENV:
         self.time_now = t.strftime('%c')
         self.time_now_short = t.strftime('%m%d_%H%M%S')
         self.hostname = socket.gethostname()
-        self.platform = platform.system() + ' ' + platform.release()
+        self.platform = '{} {}'.format(platform.system(), platform.release())
 
         # Get OS details
         if not mb_const.cmd_lsb_release:
@@ -1207,12 +1205,14 @@ class BENCH_ENV:
         self.testdata_path = os.path.join(self.current_dir, mb_const.testdata_subdir)
         self.ref_results_path = os.path.join(self.ref_app_path, mb_const.ref_results_subdir)
         self.slots_path = os.path.join(self.workdir_path, mb_const.slots_subdir)
-        self.lockfile = self.workdir_path + '.benchMTlockfile'
-        self.summary_path = os.path.join(self.testdata_path,
-                                         (self.hostname + '_benchMT_' + self.run_name + '_' + self.time_now_short))
-        self.summary_file = self.summary_path + self.hostname + '.testlog.' + self.time_now_short + '.txt'
-        self.init_data_template_file = self.workdir_path + mb_const.template_file
-        self.psv_file = self.summary_path + self.hostname + '.timelog.' + self.time_now_short + '.psv'
+        self.lockfile = os.path.join(self.workdir_path, '.benchMTlockfile')
+        summary_subdir = '{}_benchMT_{}_{}'.format(self.hostname, self.run_name, self.time_now_short)
+        self.summary_path = os.path.join(self.testdata_path, summary_subdir)
+        summary_filename = '{}.testlog.{}.txt'.format(self.hostname, self.time_now_short)
+        self.summary_file = os.path.join(self.summary_path, summary_filename)
+        psv_filename = '{}.timelog.{}.psv'.format(self.hostname, self.time_now_short)
+        self.psv_file = os.path.join(self.summary_path, psv_filename)
+        self.init_data_template_file = os.path.join(self.workdir_path, mb_const.template_file)
 
         # Check working directories
         if not os.path.isdir(self.workdir_path):
@@ -1252,13 +1252,6 @@ class BENCH_ENV:
             print('BenchCFG [', self.command_line_file, '] does not exist.')
             valid = False
 
-        # Set coproc_info file
-        if not mb_const.noBS:
-            self.coproc_file = os.path.join(self.boinc_home, mb_const.coproc_file_name)
-            if not os.path.isfile(self.coproc_file):
-                print('coproc_file [{}] does not exist'.format(self.coproc_file))
-                self.coproc_file = None
-
         return valid
 
     def set_env_boinc(self):
@@ -1280,6 +1273,10 @@ class BENCH_ENV:
             valid = False
 
         if not mb_const.noBS:
+            self.coproc_file = os.path.join(self.boinc_home, mb_const.coproc_file_name)
+            if not os.path.isfile(self.coproc_file):
+                print('coproc_file [{}] does not exist'.format(self.coproc_file))
+                self.coproc_file = None
             self.boinccmd = os.path.join(self.boinc_home, mb_const.boinccmd)
             if not os.path.isfile(self.boinccmd):
                 print('boinccmd [{}] does not exist'.format(self.boinccmd))
@@ -1404,7 +1401,7 @@ class BENCH_ENV:
         cwd = os.getcwd()
         os.chdir(self.boinc_home)
         for cmd_str in mb_const.suspend_args:
-            cmd_str = self.boinc_home + str(cmd_str)
+            cmd_str = os.path.join(self.boinc_home, cmd_str)
             if mb_const.DEBUG: print('Suspend cmd: ', cmd_str)
             try:
                 cmd = subprocess.Popen(shlex.split(cmd_str), shell=False, stdout=subprocess.PIPE)
@@ -1428,7 +1425,7 @@ class BENCH_ENV:
         cwd = os.getcwd()
         os.chdir(self.boinc_home)
         for cmd_str in mb_const.resume_args:
-            cmd_str = self.boinc_home + str(cmd_str)
+            cmd_str = os.path.join(self.boinc_home, cmd_str)
             if mb_const.DEBUG: print('Resume cmd: ', cmd_str)
             try:
                 cmd = subprocess.Popen(shlex.split(cmd_str), shell=False, stdout=subprocess.PIPE)
@@ -1621,9 +1618,9 @@ class JOB_LIST:
                     job.app_args = ''
 
                 # print(env.cpu_app_path + job.app_name)
-                if os.path.isfile(env.cpu_app_path + job.app_name):
+                if os.path.isfile(os.path.join(env.cpu_app_path, job.app_name)):
                     job.platform = 'CPU'
-                elif os.path.isfile(env.gpu_app_path + job.app_name):
+                elif os.path.isfile(os.path.join(env.gpu_app_path, job.app_name)):
                     job.platform = 'GPU'
                 else:
                     job.platform = 'UNKNOWN'
@@ -1679,7 +1676,7 @@ class JOB_LIST:
         """
         for k, v in self.list.items():
             ref_app_name = v.app_name.replace('ref-cpu.', '')
-            ref_file_name = env.ref_results_path + 'ref-result.' + ref_app_name + '.' + v.wu_name + '.sah'
+            ref_file_name = '{}ref-result.{}.{}.sah'.format(env.ref_results_path, ref_app_name, v.wu_name)
             if os.path.isfile(ref_file_name):
                 v.state = 'COMPLETE'
                 v.start_time = 'NA'
@@ -1734,6 +1731,7 @@ class JOB_LIST:
         :param title:  Title of the table
         :type title: str
         :return: None
+        .. todo:: convert to format() prints
         """
         # Print is optimized for 112 columns
         i = 0
@@ -2025,7 +2023,7 @@ class JOB_LIST:
                             # Read results of time from the subprocess
                             for line in v.cmd.stderr:
                                 linestr = line.decode('utf-8').strip()
-                                if mb_const.DEBUG: print('Time output: ' + linestr)
+                                if mb_const.DEBUG: print('Time output: {}'.format(linestr))
                                 searchObj = re.search('Real=', linestr)
                                 if searchObj:
                                     lineItem = linestr.split('|')
@@ -2047,35 +2045,39 @@ class JOB_LIST:
                                             v.time_majpf = timeItem[1]
 
                             # find ref-result file
-                            file_srch = glob.glob(env.ref_results_path + '/ref-result.' + '*.' + v.wu_name + '.sah')
+                            file_srch = glob.glob(os.path.join(env.ref_results_path,
+                                                               'ref-result.*.{}.sah'.format(v.wu_name)))
                             if len(file_srch) > 0:
-                                ref_result_file = glob.glob(env.ref_results_path + '/ref-result.' +
-                                                            '*.' + v.wu_name + '.sah')[0]
+                                ref_result_file = file_srch[0]
                             else:
                                 ref_result_file = ''
                                 v.error = v.error + '[Can not open ref-result file]'
 
                             # copy result and stderr files to testData
-                            cur_result_file = env.summary_path + '/result.' + v.app_name + '.' + \
-                                              v.wu_name + '.' + v.uuid + '.sah'
-                            if os.path.isfile(v.slot_dir + '/result.sah'):
+                            cur_result_file = os.path.join(env.summary_path,
+                                                           'result.{}.{}.{}.sah'.format(v.app_name, v.wu_name, v.uuid))
+                            cur_stderr_file = os.path.join(env.summary_path,
+                                                           'stderr.{}.{}.{}.txt'.format(v.app_name, v.wu_name, v.uuid))
+                            mb_result_file = os.path.join(v.slot_dir, 'result.sah')
+                            ap_result_file = os.path.join(v.slot_dir, 'work_unit.sah')
+                            stderr_file = os.path.join(v.slot_dir, 'stderr.txt')
+                            if os.path.isfile(mb_result_file):
                                 # copy over MB data
-                                shutil.copy2(v.slot_dir + '/result.sah', cur_result_file)
-                                os.remove(v.slot_dir + '/result.sah')
-                                if mb_const.DEBUG: print('Copy2: ' + v.slot_dir + '/results.sah', cur_result_file)
-                            elif os.path.isfile(v.slot_dir + '/work_unit.sah'):
+                                shutil.copy2(mb_result_file, cur_result_file)
+                                os.remove(mb_result_file)
+                                if mb_const.DEBUG: print('Copy2:  {} to {}'.format(mb_result_file, cur_result_file))
+                            elif os.path.isfile(ap_result_file):
                                 # copy over astropulse data
-                                shutil.copy2(v.slot_dir + '/work_unit.sah', cur_result_file)
-                                os.remove(v.slot_dir + '/work_unit.sah')
-                                if mb_const.DEBUG: print('Copy2: ' + v.slot_dir + '/work_unit.sah', cur_result_file)
+                                shutil.copy2(ap_result_file, cur_result_file)
+                                os.remove(ap_result_file)
+                                if mb_const.DEBUG: print('Copy2:  {} to {}'.format(ap_result_file, cur_result_file))
                             else:
                                 v.error = v.error + '[No results.sah file]'
-                            cur_stderr_file = env.summary_path + '/stderr.' + v.app_name + '.' + v.wu_name + \
-                                              '.' + v.uuid + '.txt'
-                            if os.path.isfile(v.slot_dir + '/stderr.txt'):
-                                shutil.copy2(v.slot_dir + '/stderr.txt', cur_stderr_file)
-                                os.remove(v.slot_dir + '/stderr.txt')
-                                if mb_const.DEBUG: print('Copy2: ' + v.slot_dir + '/stderr.txt', cur_stderr_file)
+                            if os.path.isfile(stderr_file):
+                                # copy over stderr file
+                                shutil.copy2(stderr_file, cur_stderr_file)
+                                os.remove(stderr_file)
+                                if mb_const.DEBUG: print('Copy2:  {} to {}'.format(stderr_file, cur_stderr_file))
                             else:
                                 v.error = v.error + '[No stderr.txt file]'
 
@@ -2099,7 +2101,7 @@ class JOB_LIST:
                                                     if searchObj:
                                                         lineItem = linestr.split('true_angle_range')
                                                         ar_str = re.sub(r'[^\d.]', '', lineItem[1])
-                                                        if mb_const.DEBUG: print('Angle Range: ['+ar_str + ']')
+                                                        if mb_const.DEBUG: print('Angle Range: [{}]'.format(ar_str))
                                                         v.angle_range = float(ar_str)
                                                         continue
                                                 searchObj = re.search(r'<spike>', linestr)
@@ -2156,14 +2158,14 @@ class JOB_LIST:
                                     # compare results to reference
                                     v.similarity = 'Unknown'
                                     v.q_value = 'Unknown'
-                                    command_str = env.wucmpcmd + ' ' + cur_result_file + ' ' + \
-                                                  ref_result_file + ' 2>/dev/null'
-                                    if mb_const.DEBUG: print('Results compare command: ', command_str)
+                                    command_str = '{} {} {} 2>/dev/null'.format(env.wucmpcmd,
+                                                                                cur_result_file, ref_result_file)
+                                    if mb_const.DEBUG: print('Results compare command: {}'.format(command_str))
                                     cmd = subprocess.Popen(command_str, shell=True, stdout=subprocess.PIPE)
                                     for line in cmd.stdout:
                                         linestr = line.decode('utf-8').strip()
                                         print(linestr, file=env.sum_file_ptr)
-                                        if mb_const.DEBUG: print('Results compare output: ', linestr)
+                                        if mb_const.DEBUG: print('Results compare output: {}'.format(linestr))
                                         searchObj = re.search('Result', linestr)
                                         if searchObj:
                                             line_str_items = linestr.split(':')
@@ -2207,30 +2209,38 @@ class JOB_LIST:
                         else:  # v.platform == REF
                             # Move results file to testData or testData/REF_RESULTS
                             ref_app_name = v.app_name.replace('ref-cpu.', '')
-                            dest_file = env.ref_results_path + '/ref-result.' + ref_app_name + '.' + v.wu_name + '.sah'
-                            if os.path.isfile(v.slot_dir + '/result.sah'):
-                                shutil.copy2(v.slot_dir + '/result.sah', dest_file)
-                                os.remove(v.slot_dir + '/result.sah')
-                                if mb_const.DEBUG: print('Copy2: ' + v.slot_dir + '/results.sah', dest_file)
+
+                            # Process results file
+                            dest_file = os.path.join(env.ref_results_path, 'ref-result.{}.{}.sah'.format(ref_app_name,
+                                                                                                         v.wu_name))
+                            mb_result_file = os.path.join(v.slot_dir, 'result.sah')
+                            if os.path.isfile(mb_result_file):
+                                shutil.copy2(mb_result_file, dest_file)
+                                os.remove(mb_result_file)
+                                if mb_const.DEBUG: print('Copy2:  {} to {}'.format(mb_result_file, dest_file))
                             else:
-                                print('ERROR: can not open result file: ', v.slot_dir + '/result.sah')
+                                print('ERROR: can not open result file: {}'.format(mb_result_file))
                                 v.error = v.error + '[No result.sah file]'
-                            dest_file = env.ref_results_path + '/ref-stderr.' + ref_app_name + '.' + v.wu_name + '.txt'
-                            if os.path.isfile(v.slot_dir + '/stderr.txt'):
-                                shutil.copy2(v.slot_dir + '/stderr.txt', dest_file)
-                                os.remove(v.slot_dir + '/stderr.txt')
-                                if mb_const.DEBUG: print('Copy2: ' + v.slot_dir + '/stderr.txt', dest_file)
+                            # Process stderr file
+                            dest_file = os.path.join(env.ref_results_path, 'ref-stderr.{}.{}.txt'.format(ref_app_name,
+                                                                                                         v.wu_name))
+                            stderr_file = os.path.join(v.slot_dir, 'stderr.txt')
+                            if os.path.isfile(stderr_file):
+                                shutil.copy2(stderr_file, dest_file)
+                                os.remove(stderr_file)
+                                if mb_const.DEBUG: print('Copy2:  {} to {}'.format(stderr_file, dest_file))
                             else:
-                                print('ERROR: can not open stderr file: ', v.slot_dir + '/stderr.txt')
+                                print('ERROR: can not open stderr file: {}'.format(stderr_file))
                                 v.error = v.error + '[No stderr.txt file]'
 
                         # Clean slot
                         for filename in ['boinc_finish_called', 'boinc_lockfile', 'state.sah', 'wisdom.sah', 'fold.dat',
                                          'fold.dat0', 'fold.dat1', 'indices.txt', 'ap_state.dat', 'ap_state.dat0',
                                          'ap_state.dat1', 'pulse.out', 'pulse.out0', 'pulse.out1']:
-                            if os.path.isfile(v.slot_dir + '/' + filename):
-                                os.remove(v.slot_dir + '/' + filename)
-                                if mb_const.DEBUG: print('Clean slots removed: ', v.slot_dir + '/' + filename)
+                            del_file = os.path.join(v.slot_dir, filename)
+                            if os.path.isfile(del_file):
+                                os.remove(del_file)
+                                if mb_const.DEBUG: print('Clean slots removed: {}'.format(del_file))
 
                         freed_slot = v.slot
                         v.slot = None
@@ -2284,23 +2294,23 @@ class SLOTS_LIST:
             shutil.rmtree(env.slots_path)
         os.mkdir(env.slots_path)
         if not os.path.isdir(env.slots_path):
-            print('Failed to make Slots directory [', env.slots_path, ']')
+            print('Failed to make Slots directory [{}]'.format(env.slots_path))
             return False
         if num_gpu_slots > 0:
             # copy .cl files to workdir
-            for file_str in glob.glob(env.gpu_app_path + '*.cl'):
-                shutil.copy2(file_str, env.workdir_path + '/')
+            for cl_files in glob.glob(os.path.join(env.gpu_app_path, '*.cl')):
+                shutil.copy2(cl_files, env.workdir_path)
         gpu_device_index = 0
         for k, v in self.list.items():
-            v.slot_dir = env.slots_path + str(v.slot_num)
+            v.slot_dir = os.path.join(env.slots_path, str(v.slot_num))
             os.mkdir(v.slot_dir)
             if not os.path.isdir(v.slot_dir):
-                print('Failed to make Slots directory [', v.slot_dir, ']')
+                print('Failed to make Slots directory [{}]'.format(v.slot_dir))
                 return False
 
             # copy init_data.xml from template to slot
-            if not os.path.isfile(v.slot_dir + '/init_data.xml'):
-                shutil.copy2(env.init_data_template_file, v.slot_dir + '/init_data.xml')
+            if not os.path.isfile(os.path.join(v.slot_dir, 'init_data.xml')):
+                shutil.copy2(env.init_data_template_file, os.path.join(v.slot_dir, 'init_data.xml'))
             if num_gpu_slots > 0:
                 v.platform = 'GPU'
                 v.device = env.gpu_devices[gpu_device_index]
@@ -2405,6 +2415,7 @@ class SLOTS_LIST:
         :param title: Title of the table output.
         :type title: str
         :return: None
+        .. todo:: Convert to format print
         """
         if title == '':
             print('Slot list:')
@@ -2444,6 +2455,7 @@ class SLOTS_LIST:
         :type fileptr: file
         :return:  None
         .. note:: Print is optimized for 112 columns
+        .. todo:: Convert to format print
         """
         num_jobs = joblist.jobcount_bystatus()
         print('\n   ' + str(num_jobs['COMPLETE']) + ' of ' + str(num_jobs['TOTAL']) + ' jobs complete\n', file=fileptr)
@@ -2608,6 +2620,11 @@ def main():
     env.process_options(args, cfg_modes)
     if mb_const.DEBUG: cfg_modes.print()
 
+    # Run set_env_boinc in order to set boinc environment
+    if not env.set_env_boinc():
+        print('Error in BOINC environment.  Exiting...')
+        sys.exit(-1)
+
     # Initialize list of all GPUs
     # TODO don't do all the GPU stuff if no GPU work to do!
     gpu_list = GPU_LIST()
@@ -2625,8 +2642,8 @@ def main():
     # If energy reporting option is set, verify that device mapping is also set
     if env.mode_energy:
         if len(env.devmap) != env.total_gpu_threads:
-            print('With Energy mode, a devmap must include all devices - devmap: ' + str(env.devmap) +
-                  ' devices: ' + str(env.total_gpu_threads))
+            print('With Energy mode, devmap must include all devices - devmap: {} devices: {}'.format(env.devmap,
+                                                                                                 env.total_gpu_threads))
             sys.exit(-1)
     gpu_list.apply_devmap()
 
@@ -2640,13 +2657,13 @@ def main():
         env.gpu_devices = env.boinc_dev_list
     else:
         if max(env.mode_gpu_devices) > env.total_gpu_threads - 1:
-            print('Invalid gpu_device specified, max of ', str(env.mode_gpu_devices),
-                  'is > number of GPUs [', env.total_gpu_threads, ' - 1 ]')
+            print('Invalid gpu_device specified, max of {} is > number of GPUs [{} - 1 ]'.format(env.mode_gpu_devices,
+                                                                                                 env.total_gpu_threads))
             print('Exiting...')
             sys.exit(-1)
         elif len(env.mode_gpu_devices) > 0:
             env.gpu_devices = env.mode_gpu_devices
-            print('Specified gpu_devices: ', str(env.mode_gpu_devices))
+            print('Specified gpu_devices: {}'.format(env.mode_gpu_devices))
         else:
             env.gpu_devices = env.boinc_dev_list
 
@@ -2670,12 +2687,12 @@ def main():
                                                                                         len(env.gpu_devices)))
         env.allocated_gthreads = len(env.gpu_devices)
     else:
-        print('Specified more GPUS [{}], than allocated [{}]'.format((len(env.gpu_devices), env.allocated_gthreads)))
+        print('Specified more GPUS [{}], than allocated [{}]'.format(len(env.gpu_devices), env.allocated_gthreads))
 
     # Run set_env_boinc in order to set boinc environment
-    if not env.set_env_boinc():
-        print('Error in BOINC environment.  Exiting...')
-        sys.exit(-1)
+    #if not env.set_env_boinc():
+        #print('Error in BOINC environment.  Exiting...')
+        #sys.exit(-1)
 
     # Setup for Energy mode
     if args.energy:
@@ -2854,14 +2871,17 @@ def main():
                         device_arg = '-device {}'.format(slots.list[slot_num].device)
                         slots.list[slot_num].job.app_args = '{} {}'.format(device_arg,
                                                                            slots.list[slot_num].job.app_args)
-                        cmd_str = '{} {} > {}'.format(os.path.join(env.gpu_app_path, slots.list[slot_num].job.app_name),
-                                                      slots.list[slot_num].job.app_args, '/dev/null')
+                        cmd_str = '{} `{} >{} 2>&1`'.format(os.path.join(env.gpu_app_path,
+                                                                         slots.list[slot_num].job.app_name),
+                                                            slots.list[slot_num].job.app_args, '/dev/null')
                     elif plat == 'CPU':
-                        cmd_str = '{} {} > {}'.format(os.path.join(env.cpu_app_path, slots.list[slot_num].job.app_name),
-                                                      slots.list[slot_num].job.app_args, '/dev/null')
+                        cmd_str = '{} {} >{} 2>&1'.format(os.path.join(env.cpu_app_path,
+                                                                       slots.list[slot_num].job.app_name),
+                                                          slots.list[slot_num].job.app_args, '/dev/null')
                     else:
-                        cmd_str = '{} {} > {}'.format(os.path.join(env.ref_app_path, slots.list[slot_num].job.app_name),
-                                                      slots.list[slot_num].job.app_args, '/dev/null')
+                        cmd_str = '{} {} >{} 2>&1'.format(os.path.join(env.ref_app_path,
+                                                                       slots.list[slot_num].job.app_name),
+                                                          slots.list[slot_num].job.app_args, '/dev/null')
                     if mb_const.DEBUG: print(cmd_str)
 
                     # Execute job with time command
@@ -2869,8 +2889,8 @@ def main():
                               mb_const.cmd_time, cmd_str)
                     if mb_const.DEBUG:
                         print('\n\nRun Details')
-                        print('Final command: ' + cmd_str)
-                        print('Execution directory: ' + slots.list[slot_num].slot_dir)
+                        print('Final command: {}'.format(cmd_str))
+                        print('Execution directory: {}'.format(slots.list[slot_num].slot_dir))
 
                     # cd to slot dir and execute app with args
                     os.chdir(slots.list[slot_num].slot_dir)
