@@ -841,11 +841,11 @@ class GPU_LIST:
             if v.card_num >= 0:
                 if compute:
                     if v.compute_compatible:
-                        if mb_const.DEBUG: v.print()
+                        #if mb_const.DEBUG: v.print()
                         cnlist.append(v.card_num)
                 elif energy:
                     if v.compute_compatible and v.energy_compatible:
-                        if mb_const.DEBUG: v.print()
+                        #if mb_const.DEBUG: v.print()
                         cnlist.append(v.card_num)
                 else:
                     cnlist.append(v.card_num)
@@ -1284,10 +1284,6 @@ class BENCH_ENV:
             if not os.path.isfile(self.boinccmd):
                 print('boinccmd [{}] does not exist'.format(self.boinccmd))
                 valid = False
-            #self.coproc_file = os.path.join(self.boinc_home, mb_const.coproc_file_name)
-            #if not os.path.isfile(self.coproc_file):
-                #print('coproc_file [{}] does not exist'.format(self.coproc_file))
-                #self.coproc_file = None
             if not os.path.isfile(self.init_data_template_file):
                 print('init_data.xml_template file [{}] does not exist, creating...'.format(
                       self.init_data_template_file))
@@ -1482,6 +1478,7 @@ class BENCH_ENV:
         print('WU Path: ', self.wu_path, file=fileptr)
         print('Test Data Path: ', self.testdata_path, file=fileptr)
         print('BOINC Home: ', self.boinc_home, file=fileptr)
+        print('Coprocessor Info File: ', self.coproc_file, file=fileptr)
         print('Repetitions: ', self.repetitions, file=fileptr)
         print('Allocated CPU Threads: ', self.allocated_cthreads, file=fileptr)
         print('Allocated GPU Threads: ', self.allocated_gthreads, file=fileptr)
@@ -2612,6 +2609,7 @@ def main():
     if mb_const.DEBUG: cfg_modes.print()
 
     # Initialize list of all GPUs
+    # TODO don't do all the GPU stuff if no GPU work to do!
     gpu_list = GPU_LIST()
     gpu_list.set_gpu_list()
     gpu_list.set_env_boinc_gpu_details(env)
@@ -2668,11 +2666,11 @@ def main():
     if len(env.gpu_devices) == env.allocated_gthreads:
         print('Set specified gpu_devices: ', str(env.gpu_devices))
     elif len(env.gpu_devices) < env.allocated_gthreads:
-        print('Mismatch with allocated GPUS [%d], reset allocated devices to %d' %
-              (env.allocated_gthreads, len(env.gpu_devices)))
+        print('Mismatch with allocated GPUS [{}], reset allocated devices to {}'.format(env.allocated_gthreads,
+                                                                                        len(env.gpu_devices)))
         env.allocated_gthreads = len(env.gpu_devices)
     else:
-        print('Specified more GPUS [%d], than allocated [%d]' % (len(env.gpu_devices), env.allocated_gthreads))
+        print('Specified more GPUS [{}], than allocated [{}]'.format((len(env.gpu_devices), env.allocated_gthreads)))
 
     # Run set_env_boinc in order to set boinc environment
     if not env.set_env_boinc():
@@ -2709,7 +2707,7 @@ def main():
         os.chdir(env.ref_app_path)
         ref_app.app_name = glob.glob('ref-cpu.*')[0]
         if not os.path.isfile(ref_app.app_name):
-            print('Error: can not access reference app: [' + ref_app.app_name + ']')
+            print('Error: can not access reference app: [{}]'.format(ref_app.app_name))
             valid_ref = False
         else:
             valid_ref = True
@@ -2752,8 +2750,9 @@ def main():
         env.allocated_cthreads = num_cpu_jobs + num_gpu_slots
 
     env.allocated_gthreads = num_gpu_slots
-    print('For ' + str(num_cpu_jobs) + ' CPU jobs and ' + str(env.allocated_gthreads) +
-          ' GPU slots. Allocated Threads reduced to ' + str(env.allocated_cthreads))
+    print('For {} CPU jobs and {} GPU slots. Allocated Threads reduced to {}.'.format(num_cpu_jobs,
+                                                                                      env.allocated_gthreads,
+                                                                                      env.allocated_cthreads))
 
     # Check if there is already and instance running in this directory
     if env.is_bench_conflict():
@@ -2769,8 +2768,8 @@ def main():
     # Execute the joblist
     num_pending_pjobs = joblist.pending_pjobs()
     num_pending_jobs = num_pending_pjobs['CPU'] + num_pending_pjobs['GPU']
-    print('Pending jobs (CPU/GPU): ', num_pending_pjobs['CPU'], '/', num_pending_pjobs['GPU'])
-    print('Pending reference jobs: ', num_pending_pjobs['REF'])
+    print('Pending jobs (CPU/GPU): {}/{}'.format(num_pending_pjobs['CPU'], num_pending_pjobs['GPU']))
+    print('Pending reference jobs: {}'.format(num_pending_pjobs['REF']))
     if num_pending_jobs < 1:
         print('No jobs to execute.  Exiting...')
         sys.exit(1)
@@ -2828,39 +2827,41 @@ def main():
         if num_pending_jobs > 0:
             for plat in platform_list:
                 if mb_const.DEBUG:
-                    print('Platform: ', plat, 'Total Pending Jobs: ', num_pending_jobs)
-                    print('Pending jobs (CPU/GPU/REF): ', num_pending_pjobs['CPU'], '/', num_pending_pjobs['GPU'],
-                          '/', num_pending_pjobs['REF'])
-                    print('Available slots (CPU/GPU): ', num_available_pslots['CPU'], '/',
-                          num_available_pslots['GPU'], '\n')
+                    print('Platform: {} Total Pending Jobs: {}'.format(plat, num_pending_jobs))
+                    print('Pending jobs (CPU/GPU/REF): {}/{}/{}'.format(num_pending_pjobs['CPU'],
+                                                                        num_pending_pjobs['GPU'],
+                                                                        num_pending_pjobs['REF']))
+                    print('Available slots (CPU/GPU): {}/{}\n'.format(num_available_pslots['CPU'],
+                                                                      num_available_pslots['GPU']))
                 while num_available_pslots[plat] > 0 and num_pending_pjobs[plat] > 0:
                     # get an available job for open slot
                     slot_num = slots.request_slot(plat)
                     job_num = joblist.request_job(plat)
-                    if mb_const.DEBUG: print('SlotNum: ', slot_num, 'JobUUID: ', job_num)
+                    if mb_const.DEBUG: print('SlotNum: {}, JobUUID: {}.'.format(slot_num, job_num))
 
                     # changes states in both job and slot
                     slots.assign_job(joblist, slot_num, job_num, gpu_list, slots.list[slot_num].device)
 
                     # Copy WU to slot
-                    shutil.copy2(slots.list[slot_num].job.wu_path + slots.list[slot_num].job.wu_name,
-                                 slots.list[slot_num].slot_dir + '/' + mb_const.activeWU)
+                    shutil.copy2(os.path.join(slots.list[slot_num].job.wu_path, slots.list[slot_num].job.wu_name),
+                                 os.path.join(slots.list[slot_num].slot_dir, mb_const.activeWU))
                     # Also copy using AP name, just in case the app is AP
-                    shutil.copy2(slots.list[slot_num].job.wu_path + slots.list[slot_num].job.wu_name,
-                                 slots.list[slot_num].slot_dir + '/' + mb_const.activeAPWU)
+                    shutil.copy2(os.path.join(slots.list[slot_num].job.wu_path, slots.list[slot_num].job.wu_name),
+                                 os.path.join(slots.list[slot_num].slot_dir, mb_const.activeAPWU))
 
                     # Construct app/arg list
                     if plat == 'GPU':
-                        device_arg = ' -device ' + str(slots.list[slot_num].device) + ' '
-                        slots.list[slot_num].job.app_args = device_arg + slots.list[slot_num].job.app_args 
-                        cmd_str = env.gpu_app_path + slots.list[slot_num].job.app_name + \
-                                  ' ' + slots.list[slot_num].job.app_args
+                        device_arg = '-device {}'.format(slots.list[slot_num].device)
+                        slots.list[slot_num].job.app_args = '{} {}'.format(device_arg,
+                                                                           slots.list[slot_num].job.app_args)
+                        cmd_str = '{} {} > {}'.format(os.path.join(env.gpu_app_path, slots.list[slot_num].job.app_name),
+                                                      slots.list[slot_num].job.app_args, '/dev/null')
                     elif plat == 'CPU':
-                        cmd_str = env.cpu_app_path + slots.list[slot_num].job.app_name + \
-                                  ' ' + slots.list[slot_num].job.app_args
+                        cmd_str = '{} {} > {}'.format(os.path.join(env.cpu_app_path, slots.list[slot_num].job.app_name),
+                                                      slots.list[slot_num].job.app_args, '/dev/null')
                     else:
-                        cmd_str = env.ref_app_path + slots.list[slot_num].job.app_name + \
-                                  ' ' + slots.list[slot_num].job.app_args
+                        cmd_str = '{} {} > {}'.format(os.path.join(env.ref_app_path, slots.list[slot_num].job.app_name),
+                                                      slots.list[slot_num].job.app_args, '/dev/null')
                     if mb_const.DEBUG: print(cmd_str)
 
                     # Execute job with time command
