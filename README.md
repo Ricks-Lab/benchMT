@@ -48,9 +48,9 @@
 * Complete rewrite of the core to integrate GPU_ITEM object that was previously only used in energy mode.
 * Implemented a more robust check of compute and energy compatibility for all installed GPUs. Switched from lshw to
 lspci and clinfo. Not working for [Intel GPUs](https://github.com/Ricks-Lab/benchMT/issues/6).
-* Many core improvements for improved robustness and style.  Added reST docstrings for better supportability
+* Many core improvements for better robustness and style.  Added reST docstrings for better supportability
 and improved type checking by PyCharm.
-* Extend energy mode to cover Nvidia, in addition to AMD GPU's.  Add max-power and output to psv and txt reports.
+* Extend energy mode to cover Nvidia, in addition to AMD GPU's.  Added max-power to psv and txt reports.
 * *--noBS* on the command line will allow benchMT to function without a BOINC installation.
 * Check devmap and give more details to help user understand mapping of BOINC Devices to Driver Card Numbers.
 * Added *--purge_kernels* command line option to purge cached kernel files from working directory.
