@@ -2229,6 +2229,7 @@ class JOB_LIST:
                             # Process results file
                             dest_file = os.path.join(env.ref_results_path, 'ref-result.{}.{}.sah'.format(ref_app_name,
                                                                                                          v.wu_name))
+                            print('Processing new reference results:\n   {}:'.format(dest_file), file=env.sum_file_ptr)
                             mb_result_file = os.path.join(v.slot_dir, 'result.sah')
                             if os.path.isfile(mb_result_file):
                                 shutil.copy2(mb_result_file, dest_file)
@@ -2240,6 +2241,7 @@ class JOB_LIST:
                             # Process stderr file
                             dest_file = os.path.join(env.ref_results_path, 'ref-stderr.{}.{}.txt'.format(ref_app_name,
                                                                                                          v.wu_name))
+                            print('   {}:'.format(dest_file), file=env.sum_file_ptr)
                             stderr_file = os.path.join(v.slot_dir, 'stderr.txt')
                             if os.path.isfile(stderr_file):
                                 shutil.copy2(stderr_file, dest_file)
@@ -2248,6 +2250,7 @@ class JOB_LIST:
                             else:
                                 print('ERROR: can not open stderr file: {}'.format(stderr_file))
                                 v.error = v.error + '[No stderr.txt file]'
+                            print('='.ljust(80, '='), file=env.sum_file_ptr)
 
                         # Clean slot
                         for filename in ['boinc_finish_called', 'boinc_lockfile', 'state.sah', 'wisdom.sah', 'fold.dat',
