@@ -2882,17 +2882,14 @@ def main():
                         device_arg = '-device {}'.format(slots.list[slot_num].device)
                         slots.list[slot_num].job.app_args = '{} {}'.format(device_arg,
                                                                            slots.list[slot_num].job.app_args)
-                        cmd_str = '{} {} >{} 2>&1'.format(os.path.join(env.gpu_app_path,
-                                                                         slots.list[slot_num].job.app_name),
-                                                            slots.list[slot_num].job.app_args, '/dev/null')
+                        cmd_str = '{} {}'.format(os.path.join(env.gpu_app_path, slots.list[slot_num].job.app_name),
+                                                 slots.list[slot_num].job.app_args)
                     elif plat == 'CPU':
-                        cmd_str = '{} {} >{} 2>&1'.format(os.path.join(env.cpu_app_path,
-                                                                       slots.list[slot_num].job.app_name),
-                                                          slots.list[slot_num].job.app_args, '/dev/null')
+                        cmd_str = '{} {}'.format(os.path.join(env.cpu_app_path, slots.list[slot_num].job.app_name),
+                                                 slots.list[slot_num].job.app_args)
                     else:
-                        cmd_str = '{} {} >{} 2>&1'.format(os.path.join(env.ref_app_path,
-                                                                       slots.list[slot_num].job.app_name),
-                                                          slots.list[slot_num].job.app_args, '/dev/null')
+                        cmd_str = '{} {}'.format(os.path.join(env.ref_app_path, slots.list[slot_num].job.app_name),
+                                                 slots.list[slot_num].job.app_args)
                     if mb_const.DEBUG: print(cmd_str)
 
                     # Execute job with time command
