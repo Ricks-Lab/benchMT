@@ -44,27 +44,30 @@
  files for each job run. A run name can be specified with the *--run_name* command line option. This
  name will be included in the name of the testData subdirectory for the current run.
 
-## New on Master Branch  -  v2.0.0-Beta - Ready for testing
+## New on Master Branch  -  v2.0.0-Beta - Release Candidate
 * Complete rewrite of the core to integrate GPU_ITEM object that was previously only used in energy mode.
 * Implemented a more robust check of compute and energy compatibility for all installed GPUs. Switched from lshw to
-lspci and clinfo, but still need a method for cuda capability detection.
+lspci and clinfo. Not working for [Intel GPUs](https://github.com/Ricks-Lab/benchMT/issues/6).
 * Many core improvements for improved robustness and style.  Added reST docstrings for better supportability
 and improved type checking by PyCharm.
-* Extend energy mode to cover Nvidia, in addition to AMD GPU's.
+* Extend energy mode to cover Nvidia, in addition to AMD GPU's.  Add max-power and output to psv and txt reports.
 * *--noBS* on the command line will allow benchMT to function without a BOINC installation.
 * Check devmap and give more details to help user understand mapping of BOINC Devices to Driver Card Numbers.
 * Added *--purge_kernels* command line option to purge cached kernel files from working directory.
 * Added *--lsgpu* command line option to display information on all installed GPUs.
+* Reading BOINC's coproc_info.xml as a possible way to automate device to card mapping.  Not implemented.
 
 ## Development Plans and Known Limitations
 * Doesn't work in console of server install of Ubuntu.  Need to investigate this.
 * Currently, running more than one job at a time on a single GPU is not supported. 
-* Need to find a method to find compute capable Nvidia GPUs.  Perhaps a call to nvidia-smi.  Need help on this,
-since I don't have any Nvidia GPUs.
-* Need to find a way to automate the mapping of BOINC device number to Linux card number or PCIE ID.
-Need help on this.
+* The clinfo output for [Intel GPUs](https://github.com/Ricks-Lab/benchMT/issues/6) doesn't seem to have a pcie id
+indicator based on the data I have on 1 card.
+* Need to find a way to [automate mapping](https://github.com/Ricks-Lab/benchMT/issues/8). of BOINC device number to
+Linux card number or PCIE ID.  Results from reading coproc_info.html are available in --debug mode for experimentation.
 * This package doesn't include a utility to compare AstroPulse results to a reference. If you know where
 a Linux version of this exists, please let me know.
+* Special NV app outputs results to stdout which corrupts the benchMT updating table.
+* When no GPU work is selected, benchMT still validates GPU related command line arguments.
 
 ## History
 #### New in Previous Release  -  [v1.6.0](https://github.com/Ricks-Lab/benchMT/releases/tag/v1.6.0)
