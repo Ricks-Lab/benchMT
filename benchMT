@@ -861,8 +861,87 @@ class GPU_LIST:
 class BENCH_ENV:
     """
     benchMT environment parameters.
+
+        'time_now'
+        'time_now_short'
+        'hostname'
+        'platform'
+        'os_desc'
+        'cpu_model'
+        'cpu_mhz'
+        'total_cpu_threads'
+        'total_cpu_cores'
+        'specified_max_threads'
+        'total_gpu_threads'
+        'total_gpu_count'
+        'allocated_cthreads'
+        'allocated_gthreads'
+        'boinc_dev_list'
+        'card_num_list'
+        'specified_max_gpus'
+        'gpu_devices'
+        'devmap'
+        'gpu_details'
+        'current_dir'
+        'cpu_app_path'
+        'gpu_app_path'
+        'ref_app_path'
+        'ref_results_path'
+        'wu_path'
+        'wu_std_signal_path'
+        'testdata_path'
+        'slots_path'
+        'command_line_file'
+        'boinccmd'
+        'wucmpcmd'
+        'repetitions'
+        'summary_path'
+        'run_name'
+        'summary_file'
+        'sum_file_ptr'
+        'psv_file'
+        'psv_file_ptr'
+        'workdir_path'
+        'lockfile'
+        'mode_devmap'
+        'mode_gpu_devices'
+        'mode_std_signals'
+        'mode_display_slots'
+        'mode_display_compact'
+        'mode_no_ref'
+        'mode_force_ref'
+        'mode_energy'
+        'mode_yes'
+        'mode_noBS'
+        'mode_astropulse'
+        'boinc_home'
+        'init_data_template_file'
+        'coproc_file'
+
     """
     def __init__(self):
+        self._display = {'hostname': 'Hostname: {}', 'run_name': 'Run Name: {}', 'app_mode': 'APP Mode: {}',
+                         'benchMT_version': 'benchMT version: {}', 'platform': 'Platform: {}',
+                         'os_desc': 'OS Description: {}', 'cpu_model': 'CPU Model: {}', 'cpu_mhz': 'CPU MHz: {}',
+                         'total_cpu_cores': 'CPU Cores: {}', 'total_cpu_threads': 'CPU Threads: {}',
+                         'total_gpu_count': 'GPU Count: {}', 'total_gpu_threads': 'GPU Threads: {}',
+                         'gpu_devives': 'Specified GPU Device List: {}', 'devmap': 'Devices Map: {}',
+                         'boinc_dev_list': 'BOINC Device List: {}', 'card_num_list': 'GPU Card Number List: {}',
+                         'gpu_details': 'GPU Details:', 'current_dir': 'Current Dir: {}',
+                         'slots_path': 'Slots Dir: {}', 'time_now': 'TimeNow: {}',
+                         'time_now_short': 'TimeNowShort: {}', 'cpu_app_path': 'CPU App Path: {}',
+                         'gpu_app_path': 'GPU App Path: {}', 'ref_app_path': 'REF App Path: {}',
+                         'ref_results_path': 'Reference Results Path: {}',
+                         'wu_std_signal_path': 'STD Signal WU Path: {}',
+                         'wu_path': 'WU Path: {}', 'testdata_path': 'Test Data Path: {}',
+                         'boinc_home': 'BOINC Home: {}', 'coproc_file': 'Coprocessor Info File: {}',
+                         'repetitions': 'Repetitions: {}', 'allocated_cthreads': 'Allocated CPU Threads: {}',
+                         'allocated_gthreads': 'Allocated GPU Threads: {}', 'mode_yes': '\nMode yes: {}',
+                         'mode_noBS': 'Mode noBS: {}', 'mode_std_signals': 'Mode std_signals: {}',
+                         'mode_display_slots': 'Mode display_slots: {}',
+                         'mode_display_compact': 'Mode display_compact: {}',
+                         'mode_no_ref': 'Mode no_ref: {}', 'mode_force_ref': 'Mode force_ref: {}',
+                         'mode_energy': 'Mode energy: {}', 'mode_astropulse': 'Mode astropulse: {}'}
         self.time_now = ''
         self.time_now_short = ''
         self.hostname = ''
@@ -1459,8 +1538,8 @@ class BENCH_ENV:
         print('benchMT version: {}'.format(__version__), file=fileptr)
         print('Platform: {}'.format(self.platform), file=fileptr)
         print('OS Description: {}'.format(self.os_desc), file=fileptr)
-        print('CPU Model: {}'.format(round(self.cpu_model, 1)), file=fileptr)
-        print('CPU MHz: {}'.format(self.cpu_mhz), file=fileptr)
+        print('CPU Model: {}'.format(self.cpu_model), file=fileptr)
+        print('CPU MHz: {}'.format(int(float(self.cpu_mhz))), file=fileptr)
         print('CPU Cores: {}'.format(self.total_cpu_cores), file=fileptr)
         print('CPU Threads: {}'.format(self.total_cpu_threads), file=fileptr)
         print('GPU Count: {}'.format(self.total_gpu_count), file=fileptr)
