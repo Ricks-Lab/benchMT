@@ -83,87 +83,85 @@ from pathlib import Path
 from typing import Union
 
 
-class MB_CONST:
+class objdict(dict):
+    def __getattr__(self, name):
+        if name in self:
+            return self[name]
+        else:
+            raise AttributeError("No such attribute: " + name)
+
+    def __setattr__(self, name, value):
+        self[name] = value
+
+    def __delattr__(self, name):
+        if name in self:
+            del self[name]
+        else:
+            raise AttributeError("No such attribute: " + name)
+
+
+class MB_Const(objdict):
     """
     Defines benchMT constants used through out the code.
     """
-    def __init__(self):
-        self.boinc_home = '/home/boinc/BOINC/'
-        self.cpu_app_subdir = 'APPS_CPU/'
-        self.gpu_app_subdir = 'APPS_GPU/'
-        self.ref_app_subdir = 'APPS_REF/'
-        self.ref_results_subdir = 'REF_RESULTS/'
-        self.wu_subdir = 'WU_test/'
-        self.std_signal_subdir = 'WU_std_signal/'
-        self.testdata_subdir = 'testData/'
-        self.workdir_subdir = 'workdir/'
-        self.slots_subdir = 'Slots/'
-        self.command_line_filename = 'BenchCFG'
-        self.boinccmd = 'boinccmd'
-        self.template_file = 'init_data.xml.template'
-        self.coproc_file_name = 'coproc_info.xml'
-        self.wu_cmp = 'rescmpv5_l'
-        self.suspend_args = ['boinccmd --set_gpu_mode never 172800', 'boinccmd --set_run_mode never 172800']
-        self.resume_args = ['boinccmd --set_gpu_mode never 1', 'boinccmd --set_run_mode never 1']
-        self.activeWU = 'work_unit.sah'
-        self.activeAPWU = 'in.dat'
-        self.DEBUG = False
-        self.noBS = False
-        self.env = None
-        # Items required for Energy feature
-        self.card_root = '/sys/class/drm/'
-        self.hwmon_sub = 'hwmon/hwmon'
-        # System command definitions
-        self.cmd_lspci = None
-        self.cmd_lshw = None
-        self.cmd_lscpu = None
-        self.cmd_clinfo = None
-        self.cmd_time = None
-        self.cmd_lsb_release = None
-        self.cmd_nvidia_smi = None
+    def __repr__(self):
+        return '{} - {} items'.format(self.__class__.__name__, len(self))
+
+    def __str__(self):
+        ret_str = '{'
+        for k, v in self.items():
+            pre_str = '' if ret_str == '{' else ', '
+            k_str = f'\'{k}\'' if isinstance(k, str) else f'{k}'
+            v_str = f'\'{v}\'' if isinstance(v, str) else f'{v}'
+            ret_str += '{}{}: {}'.format(pre_str, k_str, v_str)
+        ret_str += '}'
+        return ret_str
 
     def print(self):
         """
-        Print all elements an MB_CONST object.
+        Print all elements an MB_Const object.
         :return: None
         :rtype: None
         """
-        print('mb_const.boinc_home: [{}]'.format(self.boinc_home))
-        print('mb_const.cpu_app_subdir: [{}]'.format(self.cpu_app_subdir))
-        print('mb_const.gpu_app_subdir: [{}]'.format(self.gpu_app_subdir))
-        print('mb_const.ref_app_subdir: [{}]'.format(self.ref_app_subdir))
-        print('mb_const.ref_results_subdir: [{}]'.format(self.ref_results_subdir))
-        print('mb_const.wu_subdir: [{}]'.format(self.wu_subdir))
-        print('mb_const.std_signal_subdir: [{}]'.format(self.std_signal_subdir))
-        print('mb_const.testdata_subdir: [{}]'.format(self.testdata_subdir))
-        print('mb_const.workdir_subdir: [{}]'.format(self.workdir_subdir))
-        print('mb_const.slots_subdir: [{}]'.format(self.slots_subdir))
-        print('mb_const.command_line_filename: [{}]'.format(self.command_line_filename))
-        print('mb_const.boinccmd: [{}]'.format(self.boinccmd))
-        print('mb_const.template_file: [{}]'.format(self.template_file))
-        print('mb_const.coproc_file_name: [{}]'.format(self.coproc_file_name))
-        print('mb_const.wu_cmp: [{}]'.format(self.wu_cmp))
-        print('mb_const.suspend_args: [{}]'.format(self.suspend_args))
-        print('mb_const.resume_args: [{}]'.format(self.resume_args))
-        print('mb_const.activeWU: [{}]'.format(self.activeWU))
-        print('mb_const.activeAPWU: [{}]'.format(self.activeAPWU))
-        print('mb_const.DEBUG: [{}]'.format(self.DEBUG))
-        print('mb_const.noBS: [{}]'.format(self.noBS))
-        print('mb_const.env: [{}]'.format(self.env))
-        # Items required for Energy feature
-        print('mb_const.card_root: [{}]'.format(self.card_root))
-        print('mb_const.hwmon_sub: [{}]'.format(self.hwmon_sub))
-        # System command definitions
-        print('mb_const.cmd_lspci: [{}]'.format(self.cmd_lspci))
-        print('mb_const.cmd_lshw: [{}]'.format(self.cmd_lshw))
-        print('mb_const.cmd_lscpu: [{}]'.format(self.cmd_lscpu))
-        print('mb_const.cmd_clinfo: [{}]'.format(self.cmd_clinfo))
-        print('mb_const.cmd_time: [{}]'.format(self.cmd_time))
-        print('mb_const.cmd_lsb_release: [{}]'.format(self.cmd_lsb_release))
-        print('mb_const.cmd_nvidia_smi: [{}]'.format(self.cmd_nvidia_smi))
+        for k, v in self.items():
+            print('mb_const.{}: [{}]'.format(k, v))
+        return
 
 
-mb_const = MB_CONST()
+mb_const = MB_Const()
+mb_const.update({'boinc_home':  '/home/boinc/BOINC/',
+                 'cpu_app_subdir': 'APPS_CPU/',
+                 'gpu_app_subdir': 'APPS_GPU/',
+                 'ref_app_subdir': 'APPS_REF/',
+                 'ref_results_subdir': 'REF_RESULTS/',
+                 'wu_subdir': 'WU_test/',
+                 'std_signal_subdir': 'WU_std_signal/',
+                 'testdata_subdir': 'testData/',
+                 'workdir_subdir': 'workdir/',
+                 'slots_subdir': 'Slots/',
+                 'command_line_filename': 'BenchCFG',
+                 'boinccmd': 'boinccmd',
+                 'template_file': 'init_data.xml.template',
+                 'coproc_file_name': 'coproc_info.xml',
+                 'wu_cmp': 'rescmpv5_l',
+                 'suspend_args': ['boinccmd --set_gpu_mode never 172800', 'boinccmd --set_run_mode never 172800'],
+                 'resume_args': ['boinccmd --set_gpu_mode never 1', 'boinccmd --set_run_mode never 1'],
+                 'activeWU': 'work_unit.sah',
+                 'activeAPWU': 'in.dat',
+                 'DEBUG': False,
+                 'noBS': False,
+                 'env': None,
+                 # Items required for Energy feature
+                 'card_root': '/sys/class/drm/',
+                 'hwmon_sub': 'hwmon/hwmon',
+                 # System command definitions
+                 'cmd_lspci': None,
+                 'cmd_lshw': None,
+                 'cmd_lscpu': None,
+                 'cmd_clinfo': None,
+                 'cmd_time': None,
+                 'cmd_lsb_release': None,
+                 'cmd_nvidia_smi': None})
 
 
 class CFG_MODES:
@@ -187,22 +185,22 @@ class CFG_MODES:
                       'force_ref': None,
                       'energy': None,
                       'astropulse': None}
-        self.type = {'yes': 'Logical',
-                     'run_name': 'String',
-                     'boinc_home': 'String',
-                     'noBS': 'Logical',
-                     'display_compact': 'Logical',
-                     'display_slots': 'Logical',
-                     'num_repetitions': 'Numeric',
-                     'max_threads': 'Numeric',
-                     'max_gpus': 'Numeric',
-                     'gpu_devices': 'String',
-                     'devmap': 'String',
-                     'std_signals': 'Logical',
-                     'no_ref': 'Logical',
-                     'force_ref': 'Logical',
-                     'energy': 'Logical',
-                     'astropulse': 'Logical'}
+        self.type = {'yes': bool,
+                     'run_name': str,
+                     'boinc_home': str,
+                     'noBS': bool,
+                     'display_compact': bool,
+                     'display_slots': bool,
+                     'num_repetitions': int,
+                     'max_threads': int,
+                     'max_gpus': int,
+                     'gpu_devices': str,
+                     'devmap': str,
+                     'std_signals': bool,
+                     'no_ref': bool,
+                     'force_ref': bool,
+                     'energy': bool,
+                     'astropulse': bool}
 
     def set_mode(self, mode_name, mode_value):
         """
@@ -219,21 +217,19 @@ class CFG_MODES:
         if mode_name not in self.type:
             return False
 
-        if self.type[mode_name] == 'Logical':
-            if mode_value == 'True':
-                self.modes[mode_name] = True
+        if self.type[mode_name] is bool:
+            if mode_value == 'True' or mode_value == 'False':
+                self.modes[mode_name] = True if mode_value == 'True' else False
                 return True
-            elif mode_value == 'False':
-                self.modes[mode_name] = False
-                return True
-            return False
-        elif self.type[mode_name] == 'Numeric':
+            else:
+                return False
+        elif self.type[mode_name] is int:
             if re.fullmatch('[-]*[0-9]+', mode_value):
                 self.modes[mode_name] = int(mode_value)
                 return True
             else:
                 return False
-        elif self.type[mode_name] == 'String':
+        elif self.type[mode_name] is str:
             self.modes[mode_name] = mode_value
             return True
         else:
@@ -1463,7 +1459,7 @@ class BENCH_ENV:
         print('benchMT version: {}'.format(__version__), file=fileptr)
         print('Platform: {}'.format(self.platform), file=fileptr)
         print('OS Description: {}'.format(self.os_desc), file=fileptr)
-        print('CPU Model: {}'.format(self.cpu_model), file=fileptr)
+        print('CPU Model: {}'.format(round(self.cpu_model, 1)), file=fileptr)
         print('CPU MHz: {}'.format(self.cpu_mhz), file=fileptr)
         print('CPU Cores: {}'.format(self.total_cpu_cores), file=fileptr)
         print('CPU Threads: {}'.format(self.total_cpu_threads), file=fileptr)
