@@ -103,7 +103,7 @@ class ObjDict(dict):
             raise AttributeError("No such attribute: " + name)
 
 
-class MB_Const(ObjDict):
+class MbConst(ObjDict):
     """
     Defines benchMT constants used through out the code.
     """
@@ -127,11 +127,11 @@ class MB_Const(ObjDict):
         :rtype: None
         """
         for k, v in self.items():
-            print('MB_CONST.{}: [{}]'.format(k, v))
+            print('MbConst.{}: [{}]'.format(k, v))
         return
 
 
-MB_CONST = MB_Const()
+MB_CONST = MbConst()
 MB_CONST.update({'boinc_home':  '/home/boinc/BOINC/',
                  'cpu_app_subdir': 'APPS_CPU/',
                  'gpu_app_subdir': 'APPS_GPU/',
@@ -167,7 +167,7 @@ MB_CONST.update({'boinc_home':  '/home/boinc/BOINC/',
                  'cmd_nvidia_smi': None})
 
 
-class CFG_Modes:
+class CfgModes:
     """
     Defines benchMT configuration modes.
     """
@@ -413,8 +413,8 @@ class BenchEnv:
             if re.fullmatch('([0-9]:[0-9],)*([0-9]:[0-9])+', devmap_str):
                 gdev_items = devmap_str.split(',')
                 for gi in gdev_items:
-                    giItems = gi.split(':')
-                    specified_devmap[int(giItems[0])] = int(giItems[1])
+                    gi_items = gi.split(':')
+                    specified_devmap[int(gi_items[0])] = int(gi_items[1])
                 self.prm.devmap = specified_devmap
             else:
                 print('Invalid devmap arg: [', devmap_str, ']')
@@ -560,14 +560,14 @@ class BenchEnv:
                 cmd = subprocess.Popen(cmd_str, shell=True, stdout=subprocess.PIPE)
                 for line in cmd.stdout:
                     linestr = line.decode('utf-8').strip()
-                    searchObj = re.search('Description', linestr)
-                    if searchObj:
-                        lineItem = linestr.split(':')
-                        self.prm.os_desc = lineItem[1].strip()
+                    srch_obj = re.search('Description', linestr)
+                    if srch_obj:
+                        line_items = linestr.split(':')
+                        self.prm.os_desc = line_items[1].strip()
                         cmd.stdout.close()
                         break
-            except:
-                print('Warning: can not determine OS', file=sys.stderr)
+            except (subprocess.CalledProcessError, OSError) as except_err:
+                print('Warning: {}. can not determine OS'.format(except_err), file=sys.stderr)
                 self.prm.os_desc = 'UNKNOWN'
 
         # Get CPU details
@@ -581,28 +581,28 @@ class BenchEnv:
                 cmd = subprocess.Popen(cmd_str, shell=True, stdout=subprocess.PIPE)
                 for line in cmd.stdout:
                     linestr = line.decode('utf-8').strip()
-                    searchObj = re.search('Model name', linestr)
-                    if searchObj:
-                        lineItem = linestr.split(':')
-                        self.prm.cpu_model = lineItem[1].strip()
+                    srch_obj = re.search('Model name', linestr)
+                    if srch_obj:
+                        line_items = linestr.split(':')
+                        self.prm.cpu_model = line_items[1].strip()
                         continue
-                    searchObj = re.search('CPU max MHz', linestr)
-                    if searchObj:
-                        lineItem = linestr.split(':')
-                        cpu_max_mhz = lineItem[1].strip()
+                    srch_obj = re.search('CPU max MHz', linestr)
+                    if srch_obj:
+                        line_items = linestr.split(':')
+                        cpu_max_mhz = line_items[1].strip()
                         continue
-                    searchObj = re.search('CPU MHz', linestr)
-                    if searchObj:
-                        lineItem = linestr.split(':')
-                        cpu_mhz = lineItem[1].strip()
+                    srch_obj = re.search('CPU MHz', linestr)
+                    if srch_obj:
+                        line_items = linestr.split(':')
+                        cpu_mhz = line_items[1].strip()
                         continue
                 if cpu_max_mhz == '':
                     self.prm.cpu_mhz = int(float(cpu_mhz))
                 else:
                     self.prm.cpu_mhz = int(float(cpu_max_mhz))
                 cmd.stdout.close()
-            except:
-                print('Warning: can not determine CPU details', file=sys.stderr)
+            except (subprocess.CalledProcessError, OSError) as except_err:
+                print('Warning: can not determine CPU details: {}'.format(except_err), file=sys.stderr)
                 self.prm.cpu_model = 'UNKNOWN'
                 cpu_max_mhz = 'UNKNOWN'
                 cpu_mhz = 'UNKNOWN'
@@ -613,12 +613,12 @@ class BenchEnv:
                 cmd = subprocess.Popen(cmd_str, shell=True, stdout=subprocess.PIPE)
                 for line in cmd.stdout:
                     linestr = line.decode('utf-8').strip()
-                    lineItem = linestr.split()
-                    self.prm.total_cpu_threads = int(lineItem[0].strip()) + 1
-                    self.prm.total_cpu_cores = int(lineItem[3].strip()) + 1
+                    line_items = linestr.split()
+                    self.prm.total_cpu_threads = int(line_items[0].strip()) + 1
+                    self.prm.total_cpu_cores = int(line_items[3].strip()) + 1
                 cmd.stdout.close()
-            except:
-                print('Error: can not determine CPU core details', file=sys.stderr)
+            except (subprocess.CalledProcessError, OSError) as except_err:
+                print('Error: can not determine CPU core details: {}'.format(except_err), file=sys.stderr)
                 valid = False
 
         # Set working directories
@@ -809,8 +809,8 @@ class BenchEnv:
             if output.decode('utf-8').strip() == 'PID':
                 return False
             return True
-        except:
-            print('Warning: can not check if boinc is running', file=sys.stderr)
+        except OSError as except_err:
+            print('Warning: {}, can not check if boinc is running.'.format(except_err), file=sys.stderr)
             return True
 
     def suspend_boinc(self):
@@ -833,8 +833,8 @@ class BenchEnv:
                     if cmd.poll() is not None:
                         break
                     time.sleep(1)
-            except:
-                print('Error: could not execute boinccmd: {}'.format(cmd_str), file=sys.stderr)
+            except (subprocess.CalledProcessError, OSError) as except_err:
+                print('Error: {}, could not execute boinccmd: {}'.format(except_err, cmd_str), file=sys.stderr)
         os.chdir(cwd)
         time.sleep(1)
 
@@ -858,8 +858,8 @@ class BenchEnv:
                     if cmd.poll() is not None:
                         break
                     time.sleep(1)
-            except:
-                print('Error: could not execute boinccmd: {}'.format(cmd_str), file=sys.stderr)
+            except (subprocess.CalledProcessError, OSError) as except_err:
+                print('Error: {}, could not execute boinccmd.'.format(cmd_str), file=sys.stderr)
         os.chdir(cwd)
 
     def print(self, fileptr=sys.stdout):
@@ -882,7 +882,7 @@ class BenchEnv:
                 print(v.format(self.prm[k]), file=fileptr)
 
 
-class GPU_Item:
+class GpuItem:
     """
     Defines a data object that represents a GPU.
     """
@@ -908,7 +908,7 @@ class GPU_Item:
     def populate(self, pcie_id, gpu_name, vendor, driver_module, card_path, hwmon_path,
                  energy, compute, ocl_dev, ocl_ver, ocl_index):
         """
-        Populate elements of a GPU_Item.
+        Populate elements of a GpuItem.
         :param pcie_id: The pcid ID of the GPU.
         :type pcie_id: str
         :param gpu_name:  Model name of the GPU
@@ -949,11 +949,11 @@ class GPU_Item:
 
     def print(self):
         """
-        Print GPU_Item.
+        Print GpuItem.
         :return: None
         :rtype: None
         """
-        print('GPU_Item: uuid: {}'.format(self.uuid))
+        print('GpuItem: uuid: {}'.format(self.uuid))
         print('    pcie_id: {}'.format(self.pcie_id))
         print('    model: {}'.format(self.model))
         print('    vendor: {}'.format(self.vendor))
@@ -1022,7 +1022,7 @@ class GPU_Item:
     def get_power(self, set_energy_compatibility=False):
         """
         Get power from GPU and set energy compatible flag if desired.
-        :param set_energy_compatibility: True if GPU_Item energy_compatible flag is to be not checked and set.
+        :param set_energy_compatibility: True if GpuItem energy_compatible flag is to be not checked and set.
         :type set_energy_compatibility: bool
         :return: power reading in Watts
         :rtype: Union([float, None])
@@ -1042,9 +1042,10 @@ class GPU_Item:
                     try:
                         with open(hw_power_file) as hwmon_file:
                             power_reading = int(hwmon_file.readline())/1000000.0
-                    except:
+                    except OSError as except_err:
                         power_reading = None
-                        if MB_CONST.DEBUG: print('Failed to make power reading for {}'.format(self.pcie_id))
+                        if MB_CONST.DEBUG: print('Error: {}, Failed to make power reading for {}'.format(
+                                                 except_err, self.pcie_id))
         elif self.vendor == 'NVIDIA':
             # NVIDIA power reading
             if MB_CONST.cmd_nvidia_smi:
@@ -1053,9 +1054,10 @@ class GPU_Item:
                         '{} -i {} --query-gpu=power.draw --format=csv,noheader,nounits'.format(
                          MB_CONST.cmd_nvidia_smi, self.pcie_id), shell=True).decode().split('\n')
                     power_reading = float(nsmi_items[0].strip())
-                except:
+                except (subprocess.CalledProcessError, OSError) as except_err:
                     power_reading = None
-                    if MB_CONST.DEBUG: print('Failed to make power reading for {}'.format(self.pcie_id))
+                    if MB_CONST.DEBUG: print('Error: {}, Failed to make power reading for {}'.format(
+                                              except_err, self.pcie_id))
 
         if MB_CONST.DEBUG: print('Power reading for {}: {} W'.format(self.pcie_id, power_reading))
         if set_energy_compatibility:
@@ -1064,7 +1066,7 @@ class GPU_Item:
         return power_reading
 
 
-class GPU_List:
+class GpuList:
     """
     An object that stores all GPU objects and other critical parameters.
     """
@@ -1076,7 +1078,7 @@ class GPU_List:
 
     def print(self):
         """
-        Print every GPU_Item in the GPU_List object.
+        Print every GpuItem in the GpuList object.
         :return:  None
         """
         for v in self.list.values():
@@ -1084,9 +1086,9 @@ class GPU_List:
 
     def add(self, gpu_item):
         """
-        Add given GPU_Item to the GPU_List
+        Add given GpuItem to the GpuList
         :param gpu_item:  Item to be added
-        :type gpu_item: GPU_Item
+        :type gpu_item: GpuItem
         :return: None
         """
         self.list[gpu_item.uuid] = gpu_item
@@ -1105,16 +1107,16 @@ class GPU_List:
             lines = file_ptr.readlines()
             for linestr in lines:
                 linestr = linestr.strip()
-                searchObj = re.search('device_num', linestr)
-                if searchObj:
+                srch_obj = re.search('device_num', linestr)
+                if srch_obj:
                     device_num = re.sub(r'<[/]*device_num>', '', linestr)
                     if MB_CONST.DEBUG: print('device_num: [{}]'.format(device_num))
-                searchObj = re.search('opencl_device_index', linestr)
-                if searchObj:
+                srch_obj = re.search('opencl_device_index', linestr)
+                if srch_obj:
                     opencl_device_index = re.sub(r'<[/]*opencl_device_index>', '', linestr)
                     if MB_CONST.DEBUG: print('opencl_device_index: [{}]'.format(opencl_device_index))
-                searchObj = re.search(r'</(nvidia|ati)_opencl>', linestr)
-                if searchObj:
+                srch_obj = re.search(r'</(nvidia|ati)_opencl>', linestr)
+                if srch_obj:
                     if MB_CONST.DEBUG: print('device_num: opencl_device_index [{}: {}]'.format(device_num,
                                                                                                opencl_device_index))
                     if device_num is not None and opencl_device_index is not None:
@@ -1145,10 +1147,10 @@ class GPU_List:
                 continue
             if linestr[0] != '[':
                 continue
-            lineItems = linestr.split(maxsplit=2)
-            if len(lineItems) != 3:
+            line_items = linestr.split(maxsplit=2)
+            if len(line_items) != 3:
                 continue
-            cl_vender, cl_index = tuple(re.sub(r'[\[\]]', '', lineItems[0]).split('/'))
+            cl_vender, cl_index = tuple(re.sub(r'[\[\]]', '', line_items[0]).split('/'))
             if cl_index == '*':
                 continue
             if ocl_index == '':
@@ -1165,33 +1167,33 @@ class GPU_List:
                 ocl_device_version = ''
                 ocl_pcie_slot_id = ocl_pcie_bus_id = None
 
-            param_str = lineItems[1]
-            searchObj = re.search('CL_DEVICE_NAME', param_str)
-            if searchObj:
-                ocl_device_name = lineItems[2].strip()
+            param_str = line_items[1]
+            srch_obj = re.search('CL_DEVICE_NAME', param_str)
+            if srch_obj:
+                ocl_device_name = line_items[2].strip()
                 if MB_CONST.DEBUG: print('ocl_device_name [{}]'.format(ocl_device_name))
                 continue
-            searchObj = re.search('CL_DEVICE_VERSION', param_str)
-            if searchObj:
-                ocl_device_version = lineItems[2].strip()
+            srch_obj = re.search('CL_DEVICE_VERSION', param_str)
+            if srch_obj:
+                ocl_device_version = line_items[2].strip()
                 if MB_CONST.DEBUG: print('ocl_device_version [{}]'.format(ocl_device_version))
                 continue
-            searchObj = re.search('CL_DEVICE_TOPOLOGY', param_str)
-            if searchObj:
-                ocl_pcie_id = (lineItems[2].split()[1]).strip()
+            srch_obj = re.search('CL_DEVICE_TOPOLOGY', param_str)
+            if srch_obj:
+                ocl_pcie_id = (line_items[2].split()[1]).strip()
                 if MB_CONST.DEBUG: print('ocl_pcie_id [{}]'.format(ocl_pcie_id))
                 continue
-            searchObj = re.search('CL_DEVICE_PCI_BUS_ID_NV', param_str)
-            if searchObj:
-                ocl_pcie_bus_id = hex(int(lineItems[2].strip()))
+            srch_obj = re.search('CL_DEVICE_PCI_BUS_ID_NV', param_str)
+            if srch_obj:
+                ocl_pcie_bus_id = hex(int(line_items[2].strip()))
                 if ocl_pcie_slot_id is not None:
                     ocl_pcie_id = '{}:{}.0'.format(ocl_pcie_bus_id[2:].zfill(2), ocl_pcie_slot_id[2:].zfill(2))
                     ocl_pcie_slot_id = ocl_pcie_bus_id = None
                     if MB_CONST.DEBUG: print('ocl_pcie_id [{}]'.format(ocl_pcie_id))
                 continue
-            searchObj = re.search('CL_DEVICE_PCI_SLOT_ID_NV', param_str)
-            if searchObj:
-                ocl_pcie_slot_id = hex(int(lineItems[2].strip()))
+            srch_obj = re.search('CL_DEVICE_PCI_SLOT_ID_NV', param_str)
+            if srch_obj:
+                ocl_pcie_slot_id = hex(int(line_items[2].strip()))
                 if ocl_pcie_bus_id is not None:
                     ocl_pcie_id = '{}:{}.0'.format(ocl_pcie_bus_id[2:].zfill(2), ocl_pcie_slot_id[2:].zfill(2))
                     ocl_pcie_slot_id = ocl_pcie_bus_id = None
@@ -1219,18 +1221,22 @@ class GPU_List:
             pcie_ids = subprocess.check_output('{} | grep -E \"^.*(VGA|3D|Display).*$\" | grep -Eo \
                                                \"^([0-9a-fA-F]+:[0-9a-fA-F]+.[0-9a-fA-F])\"'.format(MB_CONST.cmd_lspci),
                                                shell=True).decode().split()
-        except:
-            print('lspci failed to find GPUs')
+        except (subprocess.CalledProcessError, OSError) as except_err:
+            print('Error: {}, lspci failed to find GPUs'.format(except_err))
             return False
 
         if MB_CONST.DEBUG: print('Found {} GPUs'.format(len(pcie_ids)))
         for pcie_id in pcie_ids:
             gpu_uuid = uuid4().hex
-            self.add(GPU_Item(gpu_uuid))
+            self.add(GpuItem(gpu_uuid))
             if MB_CONST.DEBUG: print('GPU: {}'.format(pcie_id))
             energy = compute = False
-            lspci_items = subprocess.check_output('{} -k -s {}'.format(MB_CONST.cmd_lspci, pcie_id),
-                                                  shell=True).decode().split('\n')
+            try:
+                lspci_items = subprocess.check_output('{} -k -s {}'.format(MB_CONST.cmd_lspci, pcie_id),
+                                                      shell=True).decode().split('\n')
+            except (subprocess.CalledProcessError, OSError) as except_err:
+                print('Fatal Error: {}, can not get GPU details with lspci'.format(except_err))
+                sys.exit(-1)
             if MB_CONST.DEBUG: print(lspci_items)
 
             # Get Long GPU Name
@@ -1239,10 +1245,10 @@ class GPU_List:
             if len(gpu_name_items) >= 2:
                 gpu_name = gpu_name_items[1]
             # Check for Fiji ProDuo
-            searchObj = re.search('Fiji', gpu_name)
-            if searchObj:
-                searchObj = re.search(r'Radeon Pro Duo', lspci_items[1].split('[AMD/ATI]')[1])
-                if searchObj:
+            srch_obj = re.search('Fiji', gpu_name)
+            if srch_obj:
+                srch_obj = re.search(r'Radeon Pro Duo', lspci_items[1].split('[AMD/ATI]')[1])
+                if srch_obj:
                     gpu_name = 'Radeon Fiji Pro Duo'
 
             # Get GPU brand: AMD, INTEL, NVIDIA, ASPEED
@@ -1250,8 +1256,8 @@ class GPU_List:
             opencl_device_name = None
             opencl_device_version = None
             opencl_device_index = None
-            searchObj = re.search(r'(AMD|amd|ATI|ati)', gpu_name)
-            if searchObj:
+            srch_obj = re.search(r'(AMD|amd|ATI|ati)', gpu_name)
+            if srch_obj:
                 vendor = 'AMD'
                 compute = False
                 if self.opencl_map:
@@ -1262,8 +1268,8 @@ class GPU_List:
                         compute = True
                 else:
                     compute = True
-            searchObj = re.search(r'(NVIDIA|nvidia|nVidia)', gpu_name)
-            if searchObj:
+            srch_obj = re.search(r'(NVIDIA|nvidia|nVidia)', gpu_name)
+            if srch_obj:
                 vendor = 'NVIDIA'
                 compute = False
                 if self.opencl_map:
@@ -1274,8 +1280,8 @@ class GPU_List:
                         compute = True
                 else:
                     compute = True
-            searchObj = re.search(r'(INTEL|intel|Intel)', gpu_name)
-            if searchObj:
+            srch_obj = re.search(r'(INTEL|intel|Intel)', gpu_name)
+            if srch_obj:
                 vendor = 'INTEL'
                 compute = False
                 if self.opencl_map:
@@ -1285,25 +1291,25 @@ class GPU_List:
                         opencl_device_index = self.opencl_map[pcie_id][2]
                         compute = True
                 else:
-                    searchObj = re.search(r' 530', gpu_name)
-                    if searchObj:
+                    srch_obj = re.search(r' 530', gpu_name)
+                    if srch_obj:
                         compute = False
                     else:
                         compute = True
-            searchObj = re.search(r'(ASPEED|aspeed|Aspeed)', gpu_name)
-            if searchObj:
+            srch_obj = re.search(r'(ASPEED|aspeed|Aspeed)', gpu_name)
+            if srch_obj:
                 vendor = 'ASPEED'
                 compute = False
-            searchObj = re.search(r'(MATROX|matrox|Matrox)', gpu_name)
-            if searchObj:
+            srch_obj = re.search(r'(MATROX|matrox|Matrox)', gpu_name)
+            if srch_obj:
                 vendor = 'MATROX'
                 compute = False
 
             # Get Driver Name
             driver_module = 'UNKNOWN'
             for lspci_line in lspci_items:
-                searchObj = re.search(r'(Kernel|kernel)', lspci_line)
-                if searchObj:
+                srch_obj = re.search(r'(Kernel|kernel)', lspci_line)
+                if srch_obj:
                     driver_module_items = lspci_line.split(': ')
                     if len(driver_module_items) >= 2:
                         driver_module = driver_module_items[1].strip()
@@ -1335,7 +1341,7 @@ class GPU_List:
 
     def apply_devmap(self):
         """
-        Applies the devmap to the GPU_List, by updating boinc_device_num in each GPU_Item.
+        Applies the devmap to the GpuList, by updating boinc_device_num in each GpuItem.
         :return: None
         """
         for v in self.list.values():
@@ -1395,8 +1401,8 @@ class GPU_List:
         card number to return the matching GPU.
         :param device_num:  An integer representing a BOINC Device number
         :type device_num:  int
-        :return:  Returns the GPU_Item which corresponds to the card number in devmap
-        :rtype: GPU_Item
+        :return:  Returns the GpuItem which corresponds to the card number in devmap
+        :rtype: GpuItem
         .. todo:: with the implementation of apply_devmap, this function could be optimized.
         """
         if not self.devmap:
@@ -1574,7 +1580,7 @@ class JobList:
         :param env:
         :type env: BenchEnv
         :param modes:
-        :type modes: CFG_Modes
+        :type modes: CfgModes
         :return:  None
         """
         with open(env.prm.command_line_file, 'r') as clfptr:
@@ -1602,8 +1608,8 @@ class JobList:
                 job.app_name = lineitems[0]
                 if len(lineitems) > 1:
                     argstr = lineitems[1]
-                    searchObj = re.search(r'[-]+[dD]evice\s+[0-9]+', argstr)
-                    if searchObj:
+                    srch_obj = re.search(r'[-]+[dD]evice\s+[0-9]+', argstr)
+                    if srch_obj:
                         argstr = re.sub(r'[-]+[dD]evice\s+[0-9]+', '', argstr)
                         print(lineitems[1])
                         print('Removed [-device X] argument as conflicts with slot assignment process')
@@ -2019,25 +2025,25 @@ class JobList:
                             for line in v.cmd.stderr:
                                 linestr = line.decode('utf-8').strip()
                                 if MB_CONST.DEBUG: print('Time output: {}'.format(linestr))
-                                searchObj = re.search('Real=', linestr)
-                                if searchObj:
-                                    lineItem = linestr.split('|')
-                                    for timestr in lineItem:
-                                        timeItem = timestr.split('=')
-                                        if timeItem[0] == 'Real':
-                                            v.time_real = timeItem[1]
-                                        elif timeItem[0] == 'User':
-                                            v.time_user = timeItem[1]
-                                        elif timeItem[0] == 'System':
-                                            v.time_system = timeItem[1]
-                                        elif timeItem[0] == 'MaxMem':
-                                            v.time_maxmem = timeItem[1]
-                                        elif timeItem[0] == 'SwapNum':
-                                            v.time_swapnum = timeItem[1]
-                                        elif timeItem[0] == 'CtxSwt':
-                                            v.time_ctxswt = timeItem[1]
-                                        elif timeItem[0] == 'MajPF':
-                                            v.time_majpf = timeItem[1]
+                                srch_obj = re.search('Real=', linestr)
+                                if srch_obj:
+                                    line_items = linestr.split('|')
+                                    for timestr in line_items:
+                                        time_item = timestr.split('=')
+                                        if time_item[0] == 'Real':
+                                            v.time_real = time_item[1]
+                                        elif time_item[0] == 'User':
+                                            v.time_user = time_item[1]
+                                        elif time_item[0] == 'System':
+                                            v.time_system = time_item[1]
+                                        elif time_item[0] == 'MaxMem':
+                                            v.time_maxmem = time_item[1]
+                                        elif time_item[0] == 'SwapNum':
+                                            v.time_swapnum = time_item[1]
+                                        elif time_item[0] == 'CtxSwt':
+                                            v.time_ctxswt = time_item[1]
+                                        elif time_item[0] == 'MajPF':
+                                            v.time_majpf = time_item[1]
 
                             # find ref-result file
                             file_srch = glob.glob(os.path.join(env.prm.ref_results_path,
@@ -2092,35 +2098,35 @@ class JobList:
                                                 if len(linestr) < 2: continue
                                                 if linestr[0] == '#': continue
                                                 if v.angle_range == 0:
-                                                    searchObj = re.search('true_angle_range', linestr)
-                                                    if searchObj:
-                                                        lineItem = linestr.split('true_angle_range')
-                                                        ar_str = re.sub(r'[^\d.]', '', lineItem[1])
+                                                    srch_obj = re.search('true_angle_range', linestr)
+                                                    if srch_obj:
+                                                        line_items = linestr.split('true_angle_range')
+                                                        ar_str = re.sub(r'[^\d.]', '', line_items[1])
                                                         if MB_CONST.DEBUG: print('Angle Range: [{}]'.format(ar_str))
                                                         v.angle_range = float(ar_str)
                                                         continue
-                                                searchObj = re.search(r'<spike>', linestr)
-                                                if searchObj:
+                                                srch_obj = re.search(r'<spike>', linestr)
+                                                if srch_obj:
                                                     v.cnt_spike += 1
                                                     continue
-                                                searchObj = re.search(r'<autocorr>', linestr)
-                                                if searchObj:
+                                                srch_obj = re.search(r'<autocorr>', linestr)
+                                                if srch_obj:
                                                     v.cnt_autocorr += 1
                                                     continue
-                                                searchObj = re.search(r'<pulse>', linestr)
-                                                if searchObj:
+                                                srch_obj = re.search(r'<pulse>', linestr)
+                                                if srch_obj:
                                                     v.cnt_pulse += 1
                                                     continue
-                                                searchObj = re.search(r'<triplet>', linestr)
-                                                if searchObj:
+                                                srch_obj = re.search(r'<triplet>', linestr)
+                                                if srch_obj:
                                                     v.cnt_triplet += 1
                                                     continue
-                                                searchObj = re.search(r'<gaussian>', linestr)
-                                                if searchObj:
+                                                srch_obj = re.search(r'<gaussian>', linestr)
+                                                if srch_obj:
                                                     v.cnt_gaussian += 1
                                                     continue
-                                except:
-                                    print('Fatal error in reading results.')
+                                except OSError as except_err:
+                                    print('Fatal Error: {} in reading results.'.format(except_err))
                                     print('    Are you running AP benchmarks and not in astropulse mode?')
 
                                 # write to run log
@@ -2162,8 +2168,8 @@ class JobList:
                                         linestr = line.decode('utf-8').strip()
                                         print(linestr, file=env.sum_file_ptr)
                                         if MB_CONST.DEBUG: print('Results compare output: {}'.format(linestr))
-                                        searchObj = re.search('Result', linestr)
-                                        if searchObj:
+                                        srch_obj = re.search('Result', linestr)
+                                        if srch_obj:
                                             line_str_items = linestr.split(':')
                                             if len(line_str_items) >= 2:
                                                 result_str = line_str_items[1].strip()
@@ -2362,29 +2368,29 @@ class SlotsList:
                 num_avail_slots += 1
         return num_avail_slots
 
-    def assign_job(self, jobs, slot_ID, job_ID, gpu_list, device):
+    def assign_job(self, jobs, slot_id, job_id, gpu_list, device):
         """
         Assign a job to a slot.
         :param jobs: The job list
         :type jobs: JobList
-        :param slot_ID: The slot number
-        :type slot_ID: int
-        :param job_ID: The job's uuid
-        :type job_ID: hex
-        :param gpu_list: GPU_List opject with all system GPUs
-        :type gpu_list: GPU_List
+        :param slot_id: The slot number
+        :type slot_id: int
+        :param job_id: The job's uuid
+        :type job_id: hex
+        :param gpu_list: GpuList object with all system GPUs
+        :type gpu_list: GpuList
         :param device: BOINC device number
         :type device: int
         :return: None
         """
-        self.list[slot_ID].state = 'ACTIVE'
-        self.list[slot_ID].job = jobs.list[job_ID]
-        jobs.list[job_ID].state = 'ACTIVE'
-        jobs.list[job_ID].slot = slot_ID
-        jobs.list[job_ID].slot_dir = self.list[slot_ID].slot_dir
-        jobs.list[job_ID].gpu_card = gpu_list.get_device_gpu(device)
-        if jobs.list[job_ID].gpu_card:
-            jobs.list[job_ID].gpu_card.reset_energy()
+        self.list[slot_id].state = 'ACTIVE'
+        self.list[slot_id].job = jobs.list[job_id]
+        jobs.list[job_id].state = 'ACTIVE'
+        jobs.list[job_id].slot = slot_id
+        jobs.list[job_id].slot_dir = self.list[slot_id].slot_dir
+        jobs.list[job_id].gpu_card = gpu_list.get_device_gpu(device)
+        if jobs.list[job_id].gpu_card:
+            jobs.list[job_id].gpu_card.reset_energy()
 
     def request_slot(self, target):
         """
@@ -2615,7 +2621,7 @@ def main():
 
     # Read BenchCFG file and create list of provided apps and arguments.
     # Determine if the apps are GPU or CPU by checking which APP_DIR they are located in
-    cfg_modes = CFG_Modes()
+    cfg_modes = CfgModes()
     applist = JobList()
     applist.read_benchcfg(env, cfg_modes)
     if MB_CONST.DEBUG: applist.print(title='Initial app list')
@@ -2631,7 +2637,7 @@ def main():
 
     # Initialize list of all GPUs
     # TODO don't do all the GPU stuff if no GPU work to do!
-    gpu_list = GPU_List()
+    gpu_list = GpuList()
     gpu_list.set_gpu_list()
     gpu_list.set_env_boinc_gpu_details(env)
     env.prm.card_num_list = gpu_list.get_card_number_list(compute=True)
@@ -2890,17 +2896,28 @@ def main():
                     # cd to slot dir and execute app with args
                     os.chdir(slots.list[slot_num].slot_dir)
                     slots.list[slot_num].job.start_time = datetime.utcnow()
-                    slots.list[slot_num].job.cmd = subprocess.Popen(shlex.split(cmd_str),
-                                                                    shell=False, stderr=subprocess.PIPE)
+                    try:
+                        slots.list[slot_num].job.cmd = subprocess.Popen(shlex.split(cmd_str),
+                                                                        shell=False, stderr=subprocess.PIPE)
+                        time.sleep(.5)
+                    except (subprocess.CalledProcessError, OSError) as except_err:
+                        # This exception is not effective since time succeeds even if the app fails to run.
+                        print('Fatal Error: {} can not execute to process job: [{}].\n  {}'.format(except_err, cmd_str))
+                        env.sum_file_ptr.close()
+                        env.psv_file_ptr.close()
+                        sys.exit(-1)
                     if slots.list[slot_num].job.cmd.poll() is not None:
-                        # TODO not sure if this works since time doesn't fail fast enough for this to be triggered
+                        # If the command finishes in less than 500ms, assume failure
                         slots.list[slot_num].job.complete_time = datetime.utcnow()
                         slots.list[slot_num].job.state = 'COMPLETE'
                         slots.list[slot_num].job.exit_status = 'ERROR'
                         slots.list[slot_num].job.error = slots.list[slot_num].job.error + '[Job Execution error]'
                         # slots.free_slot(slots.list[slot_num]) Not sure why PyCharm doesn't flag this
                         slots.free_slot(slot_num)
-                        print('ERROR: could not spawn MB process')
+                        print('='.ljust(80, '='), file=env.sum_file_ptr)
+                        print('ERROR: could not spawn MB process: {}'.format(cmd_str))
+                        print('ERROR: could not spawn MB process: {}'.format(cmd_str), file=env.sum_file_ptr)
+                        print('='.ljust(80, '='), file=env.sum_file_ptr)
                     os.chdir(env.prm.current_dir)
                     num_available_pslots = slots.available_pslots()
                     num_pending_pjobs = joblist.pending_pjobs()
