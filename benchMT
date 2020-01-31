@@ -61,7 +61,7 @@ __copyright__ = 'Copyright (C) 2018 RueiKe'
 __credits__ = ['Keith Myers - Testing and Verification']
 __license__ = 'GNU General Public License'
 __program_name__ = 'benchMT'
-__version__ = 'v2.0.0'
+__version__ = 'v2.0.0-RC2'
 __maintainer__ = 'RueiKe'
 __status__ = 'Release Candidate'
 __docformat__ = 'reStructuredText'
@@ -80,13 +80,17 @@ from uuid import uuid4
 import glob
 import shutil
 from pathlib import Path
-from typing import Union
+#from typing import Union
 
+
+# pylint: disable=multiple-statements
+# pylint: disable=line-too-long
 
 class ObjDict(dict):
     """
     Allow access of dictionary keys by key name.
     """
+    # pylint: disable=attribute-defined-outside-init
     def __getattr__(self, name):
         if name in self:
             return self[name]
@@ -107,6 +111,44 @@ class MbConst(ObjDict):
     """
     Defines benchMT constants used through out the code.
     """
+    # pylint: disable=too-many-instance-attributes
+    def __init__(self):
+        super().__init__({'boinc_home': '/home/boinc/BOINC/',
+                          'cpu_app_subdir': 'APPS_CPU/',
+                          'gpu_app_subdir': 'APPS_GPU/',
+                          'ref_app_subdir': 'APPS_REF/',
+                          'ref_results_subdir': 'REF_RESULTS/',
+                          'wu_subdir': 'WU_test/',
+                          'std_signal_subdir': 'WU_std_signal/',
+                          'testdata_subdir': 'testData/',
+                          'workdir_subdir': 'workdir/',
+                          'slots_subdir': 'Slots/',
+                          'command_line_filename': 'BenchCFG',
+                          'boinccmd': 'boinccmd',
+                          'template_file': 'init_data.xml.template',
+                          'coproc_file_name': 'coproc_info.xml',
+                          'wu_cmp': 'rescmpv5_l',
+                          'suspend_args': ['boinccmd --set_gpu_mode never 172800',
+                                           'boinccmd --set_run_mode never 172800'],
+                          'resume_args': ['boinccmd --set_gpu_mode never 1',
+                                          'boinccmd --set_run_mode never 1'],
+                          'activeWU': 'work_unit.sah',
+                          'activeAPWU': 'in.dat',
+                          'DEBUG': False,
+                          'noBS': False,
+                          'env': None,
+                          # Items required for Energy feature
+                          'card_root': '/sys/class/drm/',
+                          'hwmon_sub': 'hwmon/hwmon',
+                          # System command definitions
+                          'cmd_lspci': None,
+                          'cmd_lshw': None,
+                          'cmd_lscpu': None,
+                          'cmd_clinfo': None,
+                          'cmd_time': None,
+                          'cmd_lsb_release': None,
+                          'cmd_nvidia_smi': None})
+
     def __repr__(self):
         return '{} - {} items'.format(self.__class__.__name__, len(self))
 
@@ -132,39 +174,6 @@ class MbConst(ObjDict):
 
 
 MB_CONST = MbConst()
-MB_CONST.update({'boinc_home':  '/home/boinc/BOINC/',
-                 'cpu_app_subdir': 'APPS_CPU/',
-                 'gpu_app_subdir': 'APPS_GPU/',
-                 'ref_app_subdir': 'APPS_REF/',
-                 'ref_results_subdir': 'REF_RESULTS/',
-                 'wu_subdir': 'WU_test/',
-                 'std_signal_subdir': 'WU_std_signal/',
-                 'testdata_subdir': 'testData/',
-                 'workdir_subdir': 'workdir/',
-                 'slots_subdir': 'Slots/',
-                 'command_line_filename': 'BenchCFG',
-                 'boinccmd': 'boinccmd',
-                 'template_file': 'init_data.xml.template',
-                 'coproc_file_name': 'coproc_info.xml',
-                 'wu_cmp': 'rescmpv5_l',
-                 'suspend_args': ['boinccmd --set_gpu_mode never 172800', 'boinccmd --set_run_mode never 172800'],
-                 'resume_args': ['boinccmd --set_gpu_mode never 1', 'boinccmd --set_run_mode never 1'],
-                 'activeWU': 'work_unit.sah',
-                 'activeAPWU': 'in.dat',
-                 'DEBUG': False,
-                 'noBS': False,
-                 'env': None,
-                 # Items required for Energy feature
-                 'card_root': '/sys/class/drm/',
-                 'hwmon_sub': 'hwmon/hwmon',
-                 # System command definitions
-                 'cmd_lspci': None,
-                 'cmd_lshw': None,
-                 'cmd_lscpu': None,
-                 'cmd_clinfo': None,
-                 'cmd_time': None,
-                 'cmd_lsb_release': None,
-                 'cmd_nvidia_smi': None})
 
 
 class CfgModes:
@@ -874,6 +883,8 @@ class BenchEnv:
                 print(v.format(appmode), file=fileptr)
             elif k == 'benchMT_version':
                 print(v.format(__version__), file=fileptr)
+            elif k == 'run_name' and not self.prm.run_name:
+                continue
             elif k == 'gpu_details':
                 print('GPU Details:', file=fileptr)
                 for gpi in self.prm.gpu_details:
@@ -1738,16 +1749,15 @@ class JobList:
         i = 0
         num_jobs = self.jobcount_bystatus()
         if title == '':
-            print('\n   ' + str(num_jobs['COMPLETE']) + ' of ' + str(num_jobs['TOTAL']) +
-                  ' jobs complete\n', file=fileptr)
+            print('\n   {} of {} jobs complete.\n'.format(num_jobs['COMPLETE'], num_jobs['TOTAL']), file=fileptr)
         else:
-            print('\n   ' + title)
+            print('\n   {}'.format(title))
         print('┌─'.ljust(5, '─'), '─'.ljust(4, '─'), '─'.ljust(3, '─'), '─'.ljust(60, '─'),
               '─'.ljust(8, '─'), '─'.ljust(8, '─'), '─'.ljust(11, '─'),
               '─'.ljust(8, '─') + '┐', file=fileptr, sep='┬')
 
         if fileptr == sys.stdout:
-            print('│' + '\x1b[1;36m' + 'Job#'.ljust(4, ' ') + '\x1b[0m',
+            print('│\x1b[1;36m' + 'Job#'.ljust(4, ' ') + '\x1b[0m',
                   '\x1b[1;36m' + 'Slot'.ljust(4, ' ') + '\x1b[0m',
                   '\x1b[1;36m' + 'xPU'.ljust(3, ' ') + '\x1b[0m',
                   '\x1b[1;36m' + 'app_name'.ljust(60, ' ') + '\x1b[0m',
@@ -1755,7 +1765,7 @@ class JobList:
                   '\x1b[1;36m' + ' finish'.ljust(8, ' ') + '\x1b[0m',
                   '\x1b[1;36m' + 'tot_time'.ljust(11, ' ') + '\x1b[0m',
                   '\x1b[1;36m' + ' state'.ljust(8, ' ') + '\x1b[0m' + '│', file=fileptr, sep='│')
-            print('│' + '\x1b[1;36m' + ' '.ljust(4, ' ') + '\x1b[0m',
+            print('│\x1b[1;36m' + ' '.ljust(4, ' ') + '\x1b[0m',
                   '\x1b[1;36m' + ' '.ljust(4, ' ') + '\x1b[0m',
                   '\x1b[1;36m' + ' '.ljust(3, ' ') + '\x1b[0m',
                   '\x1b[1;36m' + 'app_args'.ljust(60, ' ') + '\x1b[0m',
@@ -2045,7 +2055,7 @@ class JobList:
                                         elif time_item[0] == 'MajPF':
                                             v.time_majpf = time_item[1]
 
-                            # find ref-result file
+                            # Find ref-result file
                             file_srch = glob.glob(os.path.join(env.prm.ref_results_path,
                                                                'ref-result.*.{}.sah'.format(v.wu_name)))
                             if file_srch:
@@ -2054,7 +2064,7 @@ class JobList:
                                 ref_result_file = ''
                                 v.error = v.error + '[Can not open ref-result file]'
 
-                            # copy result and stderr files to testData
+                            # Copy result and stderr files to testData
                             cur_result_file = os.path.join(env.prm.summary_path,
                                                            'result.{}.{}.{}.sah'.format(v.app_name, v.wu_name, v.uuid))
                             cur_stderr_file = os.path.join(env.prm.summary_path,
@@ -2063,12 +2073,12 @@ class JobList:
                             ap_result_file = os.path.join(v.slot_dir, 'work_unit.sah')
                             stderr_file = os.path.join(v.slot_dir, 'stderr.txt')
                             if os.path.isfile(mb_result_file):
-                                # copy over MB data
+                                # Copy over MB data
                                 shutil.copy2(mb_result_file, cur_result_file)
                                 os.remove(mb_result_file)
                                 if MB_CONST.DEBUG: print('Copy2:  {} to {}'.format(mb_result_file, cur_result_file))
                             elif os.path.isfile(ap_result_file):
-                                # copy over astropulse data
+                                # Copy over astropulse data
                                 shutil.copy2(ap_result_file, cur_result_file)
                                 os.remove(ap_result_file)
                                 if MB_CONST.DEBUG: print('Copy2:  {} to {}'.format(ap_result_file, cur_result_file))
@@ -2129,7 +2139,7 @@ class JobList:
                                     print('Fatal Error: {} in reading results.'.format(except_err))
                                     print('    Are you running AP benchmarks and not in astropulse mode?')
 
-                                # write to run log
+                                # Write to run log
                                 print('App Name: {}'.format(v.app_name), file=env.sum_file_ptr)
                                 print('App Args: {}'.format(v.app_args), file=env.sum_file_ptr)
                                 print('WU Name:  {}'.format(v.wu_name), file=env.sum_file_ptr)
@@ -2157,7 +2167,7 @@ class JobList:
                                 print('', file=env.sum_file_ptr)
 
                                 if ref_result_file != '' and not env.prm.mode_astropulse:
-                                    # compare results to reference
+                                    # Compare results to reference
                                     v.similarity = 'Unknown'
                                     v.q_value = 'Unknown'
                                     command_str = '{} {} {} 2>/dev/null'.format(env.prm.wucmpcmd,
@@ -2191,7 +2201,7 @@ class JobList:
                                 print('', file=env.sum_file_ptr)
                             else:
                                 print('ERROR: can not open results file: {}'.format(cur_result_file))
-                                # write to run log
+                                # Write to run log
                                 print('ERROR: can not open results file: {}'.format(cur_result_file,
                                       file=env.sum_file_ptr))
                                 print('App Name: {}'.format(v.app_name), file=env.sum_file_ptr)
@@ -2303,7 +2313,7 @@ class SlotsList:
             print('Failed to make Slots directory [{}]'.format(env.prm.slots_path))
             return False
         if num_gpu_slots > 0:
-            # copy .cl files to workdir
+            # Copy .cl files to workdir
             for cl_files in glob.glob(os.path.join(env.prm.gpu_app_path, '*.cl')):
                 shutil.copy2(cl_files, env.prm.workdir_path)
         gpu_device_index = 0
@@ -2314,7 +2324,7 @@ class SlotsList:
                 print('Failed to make Slots directory [{}]'.format(v.slot_dir))
                 return False
 
-            # copy init_data.xml from template to slot
+            # Copy init_data.xml from template to slot
             if not os.path.isfile(os.path.join(v.slot_dir, 'init_data.xml')):
                 shutil.copy2(env.prm.init_data_template_file, os.path.join(v.slot_dir, 'init_data.xml'))
             if num_gpu_slots > 0:
@@ -2447,9 +2457,9 @@ class SlotsList:
                 job_str = 'None'
             else:
                 job_str = v.job.uuid
-            print(slotnum_str, '|  ', plat_str, '| ', dev_str, '| ', state_str, '| ', job_str, '| ', v.slot_dir, sep='')
-
-        print('##### ', i, ' total slots')
+            print('{}|  {}| {}| {}| {}| {}'.format(slotnum_str, plat_str, dev_str,
+                                                   state_str, job_str, v.slot_dir), sep='')
+        print('##### {} total slots'.format(i))
 
     def print_activity(self, joblist, compact_flag=False, fileptr=sys.stdout):
         """
@@ -2470,7 +2480,7 @@ class SlotsList:
               '─'.ljust(10, '─'), '─'.ljust(10, '─') + '┐', file=fileptr, sep='┬')
 
         if fileptr == sys.stdout:
-            print('│' + '\x1b[1;36m' + 'Slot'.ljust(4, ' ') + '\x1b[0m',
+            print('│\x1b[1;36m' + 'Slot'.ljust(4, ' ') + '\x1b[0m',
                   '\x1b[1;36m' + 'xPU'.ljust(3, ' ') + '\x1b[0m',
                   '\x1b[1;36m' + 'DEV'.ljust(3, ' ') + '\x1b[0m',
                   '\x1b[1;36m' + 'app_name'.ljust(40, ' ') + '\x1b[0m',

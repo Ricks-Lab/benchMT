@@ -44,8 +44,8 @@
  files for each job run. A run name can be specified with the *--run_name* command line option. This
  name will be included in the name of the testData subdirectory for the current run.
 
-## New on Master Branch  -  v2.0.0-Beta - Release Candidate
-* Complete rewrite of the core to integrate GPU_ITEM object that was previously only used in energy mode.
+## New on Master Branch  -  v2.0.0-RC2 - Release Candidate
+* Complete rewrite of the core to integrate GpuItem object that was previously only used in energy mode.
 * Implemented a more robust check of compute and energy compatibility for all installed GPUs. Switched from lshw to
 lspci and clinfo. Not working for [Intel GPUs](https://github.com/Ricks-Lab/benchMT/issues/6).
 * Many core improvements for better robustness and style.  Added reST docstrings for better supportability
