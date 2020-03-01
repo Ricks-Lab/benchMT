@@ -93,4 +93,5 @@ MBv8_8.22r3584_sse2_clAMD_HD5_x86_64-pc-linux-gnu -v 1 -instances_per_device 1 -
 #MBv8_8.22r3712_avx2_x86_64-pc-linux-gnu --nographics
 #MBv8_8.04r3306_sse42_linux64 --nographics
 #MBv8_8.05r3345_avx_linux64 --nographics
+#MBv8_8.22r4101_avx_x86_64-pc-linux-gnu
 #MBv8_8.04r3306_sse3_linux64 --nographics
