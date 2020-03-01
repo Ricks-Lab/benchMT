@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-"""benchMT  -  SETI multi-threaded MB/AP Benchmark Tool
+""" benchMT  -  SETI multi-threaded MB/AP Benchmark Tool
 
     This tool will extract the total number of CPU cores/threads and GPU platforms from the user's
-    environment and utilize them in running a list of apps/args specified in the benchCFG file.  Using
-    less than the total number of CPU threads can be specified in the command line.  This tool will
-    read a list of MB/AP apps/args from the BenchCFG file and search for the specified MB/AP apps in the
-    APP_CPU and APP_GPU directories to validate and determine platform.  It will then leverage allocated
-    threads, as specified, to run all benchmark jobs, storing results in the testData directory.  Use
-    the *--help* option to get a description of valid command line arguments. In support of automation,
-    some command line arguments can be specified as modes in the BenchCFG file.
+    environment and utilize them in running a list of apps/args specified in the benchCFG file.
+    Using less than the total number of CPU threads can be specified in the command line.  This
+    tool will read a list of MB/AP apps/args from the BenchCFG file and search for the specified
+    MB/AP apps in the APP_CPU and APP_GPU directories to validate and determine platform.  It will
+    then leverage allocated threads, as specified, to run all benchmark jobs, storing results in
+    the testData directory.  Use the *--help* option to get a description of valid command line
+    arguments. In support of automation, some command line arguments can be specified as modes in
+    the BenchCFG file.
 
     By default, a summary list of all jobs will update in the display as the program progresses.  If
     there are a large number of jobs, then this display may not be useful and the *--display_slots*
@@ -16,10 +17,13 @@
     there will be too many slots to display, and the *--display_compact* option can used to further
     optimize the progress display.
 
-    You may need to use the *--boinc_home* command option to specify the boinc home directory, which
-    is required, since boinccmd is used. Specifying --noBS on the command line will allow benchMT to
-    function without a boinc installation.  An alternative BenchCFG file can be specified with the
+    You may need to use the *--boinc_home* command option to specify the BOINC home directory, which
+    is required, since boinccmd is used. An alternative BenchCFG file can be specified with the
     command line option *--cfg_file filename*.
+
+    The *--lsgpu* command option can be used to display information and capability of all installed
+    GPUs. The *--purge_kernels* can be used to purge all compiled kernels from the *benchMT* working
+    directory.
 
     All WUs in the WU_test directory will be used in the creation of jobs to be run, unless the
     *--std_signals* option is used, in which case, WUs in the WU_std_signal will be used.  The
@@ -31,15 +35,15 @@
     with the *--no_ref* option or forced with the *--force_ref* option. The *--energy* option can be
     used if your system has amdgpu drivers with compatible GPUs to give the energy used in running a
     task.  In order to correctly associate a GPU card number with a BOINC device number, you must
-    specify this with the *--devmap B:C,B2:C2* option.  I know of no reobust way to make this mapping
+    specify this with the *--devmap B:C,B2:C2* option.  I know of no robust way to make this mapping
     other than manually running each card individually and observing which card is being used.  If
     you are running an AstroPulse app, you must specify the *--astropulse* option in order for it to
     run properly.
 
     The results will be stored in a unique subdir of the testData directory. There is an overall run
     log txt file, a psv file useful for importing into an analytics tools, and the sah and stderr
-    files for each job run. A run name can be specified with the *--run_name* commane line option. This
-    name will be included in the name of the testData subdirectory for the current run.
+    files for each job run. A run name can be specified with the *--run_name* command line option.
+    This name will be included in the name of the testData subdirectory for the current run.
 
     Copyright (C) 2018  RueiKe
 
@@ -61,9 +65,9 @@ __copyright__ = 'Copyright (C) 2018 RueiKe'
 __credits__ = ['Keith Myers - Testing and Verification']
 __license__ = 'GNU General Public License'
 __program_name__ = 'benchMT'
-__version__ = 'v2.0.0-RC2'
+__version__ = 'v2.0.0'
 __maintainer__ = 'RueiKe'
-__status__ = 'Release Candidate'
+__status__ = 'Stable Release'
 __docformat__ = 'reStructuredText'
 
 import argparse
@@ -80,7 +84,6 @@ from uuid import uuid4
 import glob
 import shutil
 from pathlib import Path
-#from typing import Union
 
 
 # pylint: disable=multiple-statements
@@ -111,8 +114,10 @@ class MbConst(ObjDict):
     """
     Defines benchMT constants used through out the code.
     """
+    # pylint: disable=attribute-defined-outside-init
     # pylint: disable=too-many-instance-attributes
     def __init__(self):
+        # pylint: disable=attribute-defined-outside-init
         super().__init__({'boinc_home': '/home/boinc/BOINC/',
                           'cpu_app_subdir': 'APPS_CPU/',
                           'gpu_app_subdir': 'APPS_GPU/',
@@ -268,7 +273,9 @@ class BenchEnv:
     """
     benchMT environment parameters.
     """
+    # pylint: disable=attribute-defined-outside-init
     def __init__(self):
+        # pylint: disable=attribute-defined-outside-init
         self._display = {'hostname': 'Hostname: {}', 'run_name': 'Run Name: {}', 'app_mode': 'APP Mode: {}',
                          'benchMT_version': 'benchMT version: {}', 'platform': 'Platform: {}',
                          'os_desc': 'OS Description: {}', 'cpu_model': 'CPU Model: {}', 'cpu_mhz': 'CPU MHz: {}',
@@ -868,7 +875,7 @@ class BenchEnv:
                         break
                     time.sleep(1)
             except (subprocess.CalledProcessError, OSError) as except_err:
-                print('Error: {}, could not execute boinccmd.'.format(cmd_str), file=sys.stderr)
+                print('Error: {}, could not execute {}.'.format(except_err, cmd_str), file=sys.stderr)
         os.chdir(cwd)
 
     def print(self, fileptr=sys.stdout):
@@ -1161,7 +1168,7 @@ class GpuList:
             line_items = linestr.split(maxsplit=2)
             if len(line_items) != 3:
                 continue
-            cl_vender, cl_index = tuple(re.sub(r'[\[\]]', '', line_items[0]).split('/'))
+            _cl_vender, cl_index = tuple(re.sub(r'[\[\]]', '', line_items[0]).split('/'))
             if cl_index == '*':
                 continue
             if ocl_index == '':
@@ -2912,7 +2919,7 @@ def main():
                         time.sleep(.5)
                     except (subprocess.CalledProcessError, OSError) as except_err:
                         # This exception is not effective since time succeeds even if the app fails to run.
-                        print('Fatal Error: {} can not execute to process job: [{}].\n  {}'.format(except_err, cmd_str))
+                        print('Fatal Error: {} can not execute to process job: [{}].\n'.format(except_err, cmd_str))
                         env.sum_file_ptr.close()
                         env.psv_file_ptr.close()
                         sys.exit(-1)
