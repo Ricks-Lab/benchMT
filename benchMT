@@ -62,7 +62,8 @@
 """
 __author__ = 'RueiKe'
 __copyright__ = 'Copyright (C) 2018 RueiKe'
-__credits__ = ['Keith Myers - Testing and Verification']
+__credits__ = ['Keith Myers - Testing and Verification',
+               'Joseph Stateson - Debug and Verification']
 __license__ = 'GNU General Public License'
 __program_name__ = 'benchMT'
 __version__ = 'v2.0.0'
